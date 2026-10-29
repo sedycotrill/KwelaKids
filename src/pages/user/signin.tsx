@@ -6,6 +6,11 @@ import { Eye, EyeOff } from "lucide-react";
 import girlImage from "../../assets/signingurl.png";
 import girlBackground from "../../assets/roughedit.png";
 import logo from "../../assets/multipurposever.png";
+import { AudioWidget } from "../../context/AudioWidget"; 
+
+import girlImage from "../../assets/signingurl.svg";
+import girlBackground from "../../assets/roughedit.svg";
+import logo from "../../assets/multipurposever.svg";
 
 export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
@@ -51,6 +56,17 @@ export default function SignIn() {
       <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
         {/* Left illustration panel */}
         <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden bg-[#B9DDFB] sm:min-h-[430px] lg:h-full lg:min-h-0">
+    // validation logic...
+  };
+
+  return (
+    <main className="min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden relative">
+      {/* Global Audio Control Component */}
+      <AudioWidget />
+
+      <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
+        {/* Left illustration panel */}
+        <div className="relative flex min-h-85 items-center justify-center overflow-hidden bg-[#B9DDFB] sm:min-h-107.5 lg:h-full lg:min-h-0">
           <img
             src={girlBackground}
             alt=""
@@ -69,6 +85,8 @@ export default function SignIn() {
         <div className="flex min-h-[540px] items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 xl:px-16">
           <div className="w-full max-w-[390px]">
             {/* Logo and tagline */}
+        <div className="flex min-h-135 items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 xl:px-16">
+          <div className="w-full max-w-97.5">
             <div className="mb-7 flex flex-col items-center text-center">
               <img
                 src={logo}
@@ -235,4 +253,5 @@ export default function SignIn() {
       </section>
     </main>
   );
+}
 }

@@ -7,6 +7,11 @@ import { Eye, EyeOff } from "lucide-react";
 import boyImage from "../../assets/signupboi.png";
 import girlBackground from "../../assets/roughedit.png";
 import logo from "../../assets/multipurposever.png";
+import { AudioWidget } from "../../context/AudioWidget"; // Import ang widget
+
+import girlImage from "../../assets/signupboi.svg";
+import girlBackground from "../../assets/roughedit.svg";
+import logo from "../../assets/multipurposever.svg";
 
 export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
@@ -92,6 +97,34 @@ export default function SignUp() {
         <div className="flex min-h-[540px] items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 lg:py-6 xl:px-16">
           <div className="w-full max-w-[500px]">
             {/* Logo and tagline */}
+    // validation logic...
+  };
+
+  return (
+    <main className="min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden relative">
+      {/* Global Audio Control Component */}
+      <AudioWidget />
+
+      <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
+        {/* Left illustration panel */}
+        <div className="relative flex min-h-85 items-center justify-center overflow-hidden bg-[#B9DDFB] sm:min-h-107.5 lg:h-full lg:min-h-0">
+          <img
+            src={girlBackground}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+
+          <img
+            src={girlImage}
+            alt="Kwelakids character showing Filipino Sign Language"
+            className="absolute inset-0 h-full w-full object-contain object-center"
+          />
+        </div>
+
+        {/* Right sign-up panel */}
+        <div className="flex min-h-135 items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 xl:px-16">
+          <div className="w-full max-w-97.5">
             <div className="mb-7 flex flex-col items-center text-center">
               <img
                 src={logo}
@@ -100,12 +133,21 @@ export default function SignUp() {
               />
 
               <p className="mt-1 text-xs text-[#183D69]">
+                className="mb-2 h-20 w-auto max-w-full object-contain"
+              />
+
+              <h1 className="text-2xl font-extrabold text-[#164B9B]">
+                Sign Up
+              </h1>
+
+              <p className="mt-1 text-sm text-[#183D69]">
                 One knowledge at a time.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
               {/* Email */}
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               <div>
                 <label htmlFor="signup-email" className="sr-only">
                   Email
@@ -117,6 +159,11 @@ export default function SignUp() {
                   }`}
                 >
                   <span className="mr-1.5 shrink-0 text-xs font-semibold text-gray-800">
+                  className={`flex h-12 items-center rounded-full border bg-[#F7FAFE] px-4 shadow-sm focus-within:border-[#6254F5] ${
+                    emailError ? "border-red-500" : "border-[#B8B8B8]"
+                  }`}
+                >
+                  <span className="mr-2 shrink-0 text-sm font-semibold text-gray-800">
                     Email:
                   </span>
 
@@ -132,6 +179,7 @@ export default function SignUp() {
                     }
                     onChange={() => setEmailError("")}
                     className="min-w-0 flex-1 bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-500"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                   />
                 </div>
 
@@ -140,6 +188,7 @@ export default function SignUp() {
                     id="signup-email-error"
                     role="alert"
                     className="ml-3 mt-1 text-xs text-red-600"
+                    className="ml-4 mt-1 text-xs text-red-600"
                   >
                     {emailError}
                   </p>
@@ -158,6 +207,11 @@ export default function SignUp() {
                   }`}
                 >
                   <span className="mr-1.5 shrink-0 text-xs font-semibold text-gray-800">
+                  className={`flex h-12 items-center rounded-full border bg-[#F7FAFE] px-4 shadow-sm focus-within:border-[#6254F5] ${
+                    passwordError ? "border-red-500" : "border-[#B8B8B8]"
+                  }`}
+                >
+                  <span className="mr-2 shrink-0 text-sm font-semibold text-gray-800">
                     Password:
                   </span>
 
@@ -173,6 +227,7 @@ export default function SignUp() {
                     }
                     onChange={() => setPasswordError("")}
                     className="min-w-0 flex-1 bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-500"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                   />
 
                   <button
@@ -189,6 +244,12 @@ export default function SignUp() {
                       <EyeOff size={13} />
                     ) : (
                       <Eye size={13} />
+                    className="ml-2 shrink-0 text-gray-700 transition hover:text-[#6254F5]"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={16} />
+                    ) : (
+                      <Eye size={16} />
                     )}
                   </button>
                 </div>
@@ -198,6 +259,7 @@ export default function SignUp() {
                     id="signup-password-error"
                     role="alert"
                     className="ml-3 mt-1 text-xs text-red-600"
+                    className="ml-4 mt-1 text-xs text-red-600"
                   >
                     {passwordError}
                   </p>
@@ -206,11 +268,13 @@ export default function SignUp() {
 
               {/* Remember me */}
               <label className="flex cursor-pointer items-center gap-2 text-[10px] text-gray-700">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-700">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(event) => setRememberMe(event.target.checked)}
                   className="h-3 w-3 accent-[#6254F5]"
+                  className="h-3.5 w-3.5 accent-[#6254F5]"
                 />
                 Remember me
               </label>
@@ -225,6 +289,15 @@ export default function SignUp() {
               {/* Terms and Conditions */}
               <div>
                 <label className="flex cursor-pointer items-start gap-2 text-[10px] text-gray-700">
+              <button
+                type="submit"
+                className="h-12 w-full rounded-full bg-[#6254F5] text-sm font-bold text-white shadow-sm transition hover:bg-[#5142E5] focus:outline-none focus:ring-2 focus:ring-[#6254F5] focus:ring-offset-2"
+              >
+                Sign Up
+              </button>
+
+              <div>
+                <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-700">
                   <input
                     type="checkbox"
                     checked={acceptedTerms}
@@ -233,6 +306,7 @@ export default function SignUp() {
                       setTermsError("");
                     }}
                     className="mt-0.5 h-3 w-3 accent-[#6254F5]"
+                    className="mt-0.5 h-3.5 w-3.5 accent-[#6254F5]"
                   />
 
                   <span>
@@ -259,6 +333,7 @@ export default function SignUp() {
 
             {/* Sign In link */}
             <p className="mt-6 text-center text-[10px] text-gray-700">
+            <p className="mt-6 text-center text-sm text-gray-700">
               Already have an Account?{" "}
               <Link
                 to="/signin"
@@ -272,4 +347,5 @@ export default function SignUp() {
       </section>
     </main>
   );
+}
 }
