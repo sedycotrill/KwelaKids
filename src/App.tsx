@@ -1,19 +1,18 @@
-
-import { Button } from "@/components/ui/button";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AudioProvider } from "./context/AudioContext"; // 1. Import ang AudioProvider
+import SignIn from "./pages/user/signin";
+import SignUp from "./pages/user/signup";
 
 function App() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-foreground">
-      <h1 className="text-3xl font-bold">Kwelakids</h1>
-
-      <p className="text-muted-foreground">
-        Welcome to Kwelakids!
-      </p>
-
-      <Button onClick={() => alert("Kwelakids Button is working!")}>
-        Test Button
-      </Button>
-    </main>
+    // 2. I-wrap ang buong Routes sa loob ng AudioProvider
+    <AudioProvider>
+      <Routes>
+        <Route path="/" element={<Navigate to="/signin" replace />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
+      </Routes>
+    </AudioProvider>
   );
 }
 
