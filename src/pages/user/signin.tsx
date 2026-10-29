@@ -2,6 +2,10 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+
+import girlImage from "../../assets/signingurl.png";
+import girlBackground from "../../assets/roughedit.png";
+import logo from "../../assets/multipurposever.png";
 import { AudioWidget } from "../../context/AudioWidget"; 
 
 import girlImage from "../../assets/signingurl.svg";
@@ -16,6 +20,42 @@ export default function SignIn() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    setEmailError("");
+    setPasswordError("");
+
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    let hasError = false;
+
+    if (!email) {
+      setEmailError("Email is required.");
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError("Please enter a valid email address.");
+      hasError = true;
+    }
+
+    if (!password.trim()) {
+      setPasswordError("Password is required.");
+      hasError = true;
+    } else if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    // Connect authentication logic here.
+  };
+
+  return (
+    <main className="min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden">
+      <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
+        {/* Left illustration panel */}
+        <div className="relative flex min-h-[340px] items-center justify-center overflow-hidden bg-[#B9DDFB] sm:min-h-[430px] lg:h-full lg:min-h-0">
     // validation logic...
   };
 
@@ -42,6 +82,9 @@ export default function SignIn() {
         </div>
 
         {/* Right sign-in panel */}
+        <div className="flex min-h-[540px] items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 xl:px-16">
+          <div className="w-full max-w-[390px]">
+            {/* Logo and tagline */}
         <div className="flex min-h-135 items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 xl:px-16">
           <div className="w-full max-w-97.5">
             <div className="mb-7 flex flex-col items-center text-center">
@@ -61,6 +104,7 @@ export default function SignIn() {
             </div>
 
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {/* Email */}
               <div>
                 <label htmlFor="email" className="sr-only">
                   Email
@@ -99,6 +143,7 @@ export default function SignIn() {
                 )}
               </div>
 
+              {/* Password */}
               <div>
                 <label htmlFor="password" className="sr-only">
                   Password
@@ -148,6 +193,7 @@ export default function SignIn() {
                 )}
               </div>
 
+              {/* Remember me and Forgot Password */}
               <div className="flex items-center justify-between gap-3 text-xs">
                 <label className="flex cursor-pointer items-center gap-2 text-gray-700">
                   <input
@@ -167,6 +213,7 @@ export default function SignIn() {
                 </Link>
               </div>
 
+              {/* Sign In */}
               <button
                 type="submit"
                 className="h-12 w-full rounded-full bg-[#6254F5] text-sm font-bold text-white shadow-sm transition hover:bg-[#5142E5] focus:outline-none focus:ring-2 focus:ring-[#6254F5] focus:ring-offset-2"
@@ -175,12 +222,14 @@ export default function SignIn() {
               </button>
             </form>
 
+            {/* Divider */}
             <div className="my-5 flex items-center gap-3">
               <div className="h-px flex-1 bg-gray-300" />
               <span className="text-xs font-medium text-gray-500">OR</span>
               <div className="h-px flex-1 bg-gray-300" />
             </div>
 
+            {/* Google Sign In */}
             <button
               type="button"
               className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-[#B8B8B8] bg-[#F7FAFE] text-sm font-medium text-gray-800 transition hover:bg-white"
@@ -189,6 +238,7 @@ export default function SignIn() {
               Sign In with Google
             </button>
 
+            {/* Sign Up */}
             <p className="mt-6 text-center text-sm text-gray-700">
               Don&apos;t have an account?{" "}
               <Link
@@ -203,4 +253,5 @@ export default function SignIn() {
       </section>
     </main>
   );
+}
 }
