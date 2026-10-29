@@ -1,20 +1,15 @@
 
-import { Button } from "@/components/ui/button";
+import { Routes, Route, Navigate } from "react-router-dom";
+import SignIn from "./pages/user/signin";
+import SignUp from "./pages/user/signup";
 
 function App() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-foreground">
-      <h1 className="text-3xl font-bold">Kwelakids</h1>
-
-      <p className="text-muted-foreground">
-        Welcome to Kwelakids!
-      </p>
-
-      <Button onClick={() => alert("Kwelakids Button is working!")}>
-        Test Button
-      </Button>
-    </main>
+    <Routes>
+      <Route path="/" element={<Navigate to="/signin" replace />} />
+      <Route path="/signin" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
+    </Routes>
   );
 }
-
 export default App;
