@@ -1,5 +1,5 @@
 import { ChevronDown, CircleUserRound } from "lucide-react";
-import HeaderLogo from "../../assets/HeaderLogo.png";
+import HeaderLogo from "../../assets/HeaderLogo.svg";
 
 interface HeaderProps {
   learnerName: string;

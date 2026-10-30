@@ -21,27 +21,34 @@ export default function CategoryCard({
         rounded-3xl
         px-5
         py-4
+        transition-all
         sm:flex-row
         sm:items-center
         sm:justify-between
       `}
     >
-      <div className="flex items-center gap-4">
-        <img
-          src={category.image}
-          alt={category.title}
-          className="h-20 w-20 object-contain"
-        />
+      {/* Left Content */}
+      <div className="flex items-center gap-3">
+        
+        {/* Icon Container */}
+        <div className="flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32">
+          <img
+            src={category.image}
+            alt={category.title}
+            className="h-full w-full object-cover"
+          />
+        </div>
 
+        {/* Text */}
         <div>
-      <h3
-        className={`
-          text-2xl
-          font-extrabold
-          sm:text-3xl
-          ${theme.title}
-        `}
-      >
+          <h3
+            className={`
+              text-2xl
+              font-extrabold
+              sm:text-3xl
+              ${theme.title}
+            `}
+          >
             {category.title}
           </h3>
 
@@ -51,7 +58,10 @@ export default function CategoryCard({
         </div>
       </div>
 
-      <CircleArrowButton color={theme.button} />
+      {/* Arrow Button */}
+      <div className="self-end sm:self-auto">
+        <CircleArrowButton color={theme.button} />
+      </div>
     </div>
   );
 }
