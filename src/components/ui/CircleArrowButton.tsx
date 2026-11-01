@@ -2,13 +2,18 @@ import { ArrowRight } from "lucide-react";
 
 interface CircleArrowButtonProps {
   color: string;
+  onClick?: () => void;
 }
 
 export default function CircleArrowButton({
   color,
+  onClick,
 }: CircleArrowButtonProps) {
   return (
     <button
+      type="button"
+      onClick={onClick}
+      aria-label="Open category"
       className={`
         ${color}
         flex

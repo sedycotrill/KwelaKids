@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import type { Category } from "../../types/category";
 import { categoryThemes } from "../../data/categoryThemes";
 import CircleArrowButton from "../ui/CircleArrowButton";
@@ -10,6 +11,13 @@ export default function CategoryCard({
   category,
 }: CategoryCardProps) {
   const theme = categoryThemes[category.theme];
+  const navigate = useNavigate();
+
+  const handleCategoryClick = () => {
+    if (category.title.toLowerCase() === "alphabet") {
+      navigate("/alphabet");
+    }
+  };
 
   return (
     <div
@@ -29,7 +37,6 @@ export default function CategoryCard({
     >
       {/* Left Content */}
       <div className="flex items-center gap-3">
-        
         {/* Icon Container */}
         <div className="flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32">
           <img
@@ -60,7 +67,10 @@ export default function CategoryCard({
 
       {/* Arrow Button */}
       <div className="self-end sm:self-auto">
-        <CircleArrowButton color={theme.button} />
+        <CircleArrowButton
+          color={theme.button}
+          onClick={handleCategoryClick}
+        />
       </div>
     </div>
   );

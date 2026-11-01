@@ -1,30 +1,196 @@
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { AudioWidget } from "../../context/AudioWidget"; // Import ang widget
+import { AudioWidget } from "../../context/AudioWidget";
 
 import girlImage from "../../assets/signupboi.svg";
 import girlBackground from "../../assets/roughedit.svg";
 import logo from "../../assets/multipurposever.svg";
 
+type Account = {
+  id: string;
+  email: string;
+  password: string;
+};
+
+type SignupDraft = {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+  acceptedTerms: boolean;
+};
+
+const DRAFT_KEY = "kwelakids_signup_draft";
+
+function getSavedDraft(): SignupDraft {
+  const emptyDraft: SignupDraft = {
+    email: "",
+    password: "",
+    rememberMe: false,
+    acceptedTerms: false,
+  };
+
+  try {
+    const savedDraft = sessionStorage.getItem(DRAFT_KEY);
+
+    if (!savedDraft) return emptyDraft;
+
+    return {
+      ...emptyDraft,
+      ...JSON.parse(savedDraft),
+    };
+  } catch {
+    sessionStorage.removeItem(DRAFT_KEY);
+    return emptyDraft;
+  }
+}
+
 export default function SignUp() {
+  const navigate = useNavigate();
+
+  // Restore saved values before the first render
+  const [initialDraft] = useState<SignupDraft>(getSavedDraft);
+
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [rememberMe, setRememberMe] = useState(
+    initialDraft.rememberMe
+  );
+  const [acceptedTerms, setAcceptedTerms] = useState(
+    initialDraft.acceptedTerms
+  );
+
+  const [email, setEmail] = useState(initialDraft.email);
+  const [password, setPassword] = useState(initialDraft.password);
 
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [termsError, setTermsError] = useState("");
 
+  // Save form changes automatically
+  useEffect(() => {
+    const draft: SignupDraft = {
+      email,
+      password,
+      rememberMe,
+      acceptedTerms,
+    };
+
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [email, password, rememberMe, acceptedTerms]);
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // validation logic...
+
+    setEmailError("");
+    setPasswordError("");
+    setTermsError("");
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // EMAIL VALIDATION
+    if (!normalizedEmail) {
+      setEmailError("Email is required.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    if (!/^[^\s@]+@gmail\.com$/.test(normalizedEmail)) {
+      setEmailError("Please use a valid Gmail address.");
+      return;
+    }
+
+    // PASSWORD VALIDATION
+    if (!password) {
+      setPasswordError("Password is required.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      setPasswordError("Password must contain at least one uppercase letter.");
+      return;
+    }
+
+    if (!/[a-z]/.test(password)) {
+      setPasswordError("Password must contain at least one lowercase letter.");
+      return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      setPasswordError("Password must contain at least one number.");
+      return;
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setPasswordError("Password must contain at least one special character.");
+      return;
+    }
+
+    // TERMS VALIDATION
+    if (!acceptedTerms) {
+      setTermsError("You must accept the Terms and Conditions.");
+      return;
+    }
+
+    try {
+      // CHECK EXISTING ACCOUNTS
+      const storedAccounts = localStorage.getItem("kwelakids_accounts");
+
+      const accounts: Account[] = storedAccounts
+        ? JSON.parse(storedAccounts)
+        : [];
+
+      const emailExists = accounts.some(
+        (account) => account.email.toLowerCase() === normalizedEmail
+      );
+
+      if (emailExists) {
+        setEmailError("An account with this email already exists.");
+        return;
+      }
+
+      // CREATE PENDING ACCOUNT
+      const pendingAccount: Account = {
+        id: crypto.randomUUID(),
+        email: normalizedEmail,
+        password,
+      };
+
+      // TEMPORARILY STORE UNTIL OTP VERIFICATION
+      sessionStorage.setItem(
+        "kwelakids_pending_account",
+        JSON.stringify(pendingAccount)
+      );
+
+      // STORE REMEMBER ME PREFERENCE
+      sessionStorage.setItem(
+        "kwelakids_remember_me",
+        JSON.stringify(rememberMe)
+      );
+
+      // CLEAR SAVED DRAFT AFTER SUCCESSFUL SUBMISSION
+      sessionStorage.removeItem(DRAFT_KEY);
+
+      // PROCEED TO OTP
+      navigate("/otp");
+    } catch (error) {
+      console.error("Registration error:", error);
+      setEmailError("Something went wrong. Please try again.");
+    }
   };
 
   return (
-    <main className="min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden relative">
-      {/* Global Audio Control Component */}
+    <main className="relative min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden">
       <AudioWidget />
 
       <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
@@ -64,6 +230,7 @@ export default function SignUp() {
             </div>
 
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {/* EMAIL */}
               <div>
                 <label htmlFor="signup-email" className="sr-only">
                   Email
@@ -84,11 +251,15 @@ export default function SignUp() {
                     type="email"
                     placeholder="Enter your Email"
                     autoComplete="email"
+                    value={email}
                     aria-invalid={Boolean(emailError)}
                     aria-describedby={
                       emailError ? "signup-email-error" : undefined
                     }
-                    onChange={() => setEmailError("")}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setEmailError("");
+                    }}
                     className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                   />
                 </div>
@@ -104,6 +275,7 @@ export default function SignUp() {
                 )}
               </div>
 
+              {/* PASSWORD */}
               <div>
                 <label htmlFor="signup-password" className="sr-only">
                   Password
@@ -124,19 +296,21 @@ export default function SignUp() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your Password"
                     autoComplete="new-password"
+                    value={password}
                     aria-invalid={Boolean(passwordError)}
                     aria-describedby={
                       passwordError ? "signup-password-error" : undefined
                     }
-                    onChange={() => setPasswordError("")}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setPasswordError("");
+                    }}
                     className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                   />
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword((previous) => !previous)
-                    }
+                    onClick={() => setShowPassword((previous) => !previous)}
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -161,6 +335,7 @@ export default function SignUp() {
                 )}
               </div>
 
+              {/* REMEMBER ME */}
               <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-700">
                 <input
                   type="checkbox"
@@ -171,6 +346,7 @@ export default function SignUp() {
                 Remember me
               </label>
 
+              {/* SIGN UP */}
               <button
                 type="submit"
                 className="h-12 w-full rounded-full bg-[#6254F5] text-sm font-bold text-white shadow-sm transition hover:bg-[#5142E5] focus:outline-none focus:ring-2 focus:ring-[#6254F5] focus:ring-offset-2"
@@ -178,6 +354,7 @@ export default function SignUp() {
                 Sign Up
               </button>
 
+              {/* TERMS AND CONDITIONS */}
               <div>
                 <label className="flex cursor-pointer items-start gap-2 text-xs text-gray-700">
                   <input
@@ -193,7 +370,7 @@ export default function SignUp() {
                   <span>
                     I accept the{" "}
                     <Link
-                      to="/terms"
+                      to="/termsandcondition"
                       className="text-[#6254F5] underline underline-offset-2 hover:text-[#4938D8]"
                     >
                       Terms and Condition

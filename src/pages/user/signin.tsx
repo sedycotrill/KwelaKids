@@ -1,14 +1,26 @@
+
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { AudioWidget } from "../../context/AudioWidget"; 
+import { AudioWidget } from "../../context/AudioWidget";
 
 import girlImage from "../../assets/signingurl.svg";
 import girlBackground from "../../assets/roughedit.svg";
 import logo from "../../assets/multipurposever.svg";
 
+type Account = {
+  id: string;
+  email: string;
+  password: string;
+};
+
 export default function SignIn() {
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [emailError, setEmailError] = useState("");
@@ -16,7 +28,69 @@ export default function SignIn() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // validation logic...
+
+    setEmailError("");
+    setPasswordError("");
+
+    let hasError = false;
+
+    if (!email.trim()) {
+      setEmailError("Please enter your email.");
+      hasError = true;
+    }
+
+    if (!password) {
+      setPasswordError("Please enter your password.");
+      hasError = true;
+    }
+
+    if (hasError) return;
+
+    try {
+      const storedAccounts = localStorage.getItem("kwelakids_accounts");
+
+      const accounts: Account[] = storedAccounts
+        ? JSON.parse(storedAccounts)
+        : [];
+
+      const matchedAccount = accounts.find(
+        (account) =>
+          account.email.toLowerCase() === email.trim().toLowerCase() &&
+          account.password === password
+      );
+
+      if (!matchedAccount) {
+        setEmailError("Invalid email or password.");
+        setPasswordError("Invalid email or password.");
+        return;
+      }
+
+      const currentUser = {
+        id: matchedAccount.id,
+        email: matchedAccount.email,
+      };
+
+      if (rememberMe) {
+        localStorage.setItem(
+          "kwelakids_current_user",
+          JSON.stringify(currentUser)
+        );
+
+        sessionStorage.removeItem("kwelakids_current_user");
+      } else {
+        sessionStorage.setItem(
+          "kwelakids_current_user",
+          JSON.stringify(currentUser)
+        );
+
+        localStorage.removeItem("kwelakids_current_user");
+      }
+
+      navigate("/categories", { replace: true });
+    } catch (error) {
+      console.error("Sign in error:", error);
+      setEmailError("Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -60,7 +134,12 @@ export default function SignIn() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <form
+              onSubmit={handleSubmit}
+              noValidate
+              className="space-y-4"
+            >
+              {/* Email */}
               <div>
                 <label htmlFor="email" className="sr-only">
                   Email
@@ -81,9 +160,13 @@ export default function SignIn() {
                     type="email"
                     placeholder="Enter your Email"
                     autoComplete="email"
+                    value={email}
                     aria-invalid={Boolean(emailError)}
                     aria-describedby={emailError ? "email-error" : undefined}
-                    onChange={() => setEmailError("")}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setEmailError("");
+                    }}
                     className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                   />
                 </div>
@@ -99,6 +182,7 @@ export default function SignIn() {
                 )}
               </div>
 
+              {/* Password */}
               <div>
                 <label htmlFor="password" className="sr-only">
                   Password
@@ -119,17 +203,23 @@ export default function SignIn() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your Password"
                     autoComplete="current-password"
+                    value={password}
                     aria-invalid={Boolean(passwordError)}
                     aria-describedby={
                       passwordError ? "password-error" : undefined
                     }
-                    onChange={() => setPasswordError("")}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setPasswordError("");
+                    }}
                     className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                   />
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword((previous) => !previous)}
+                    onClick={() =>
+                      setShowPassword((previous) => !previous)
+                    }
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     className="ml-2 shrink-0 text-gray-700 transition hover:text-[#6254F5]"
                   >
@@ -148,6 +238,7 @@ export default function SignIn() {
                 )}
               </div>
 
+              {/* Remember Me and Forgot Password */}
               <div className="flex items-center justify-between gap-3 text-xs">
                 <label className="flex cursor-pointer items-center gap-2 text-gray-700">
                   <input
@@ -160,13 +251,14 @@ export default function SignIn() {
                 </label>
 
                 <Link
-                  to="/forgot-password"
+                  to="/forgotpassword"
                   className="text-[#6254F5] underline underline-offset-2 hover:text-[#4938D8]"
                 >
                   Forgot Password
                 </Link>
               </div>
 
+              {/* Sign In Button */}
               <button
                 type="submit"
                 className="h-12 w-full rounded-full bg-[#6254F5] text-sm font-bold text-white shadow-sm transition hover:bg-[#5142E5] focus:outline-none focus:ring-2 focus:ring-[#6254F5] focus:ring-offset-2"
@@ -181,6 +273,7 @@ export default function SignIn() {
               <div className="h-px flex-1 bg-gray-300" />
             </div>
 
+            {/* Google Sign In - UI only */}
             <button
               type="button"
               className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-[#B8B8B8] bg-[#F7FAFE] text-sm font-medium text-gray-800 transition hover:bg-white"
