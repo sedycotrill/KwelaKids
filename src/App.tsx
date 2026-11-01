@@ -6,8 +6,7 @@ import TermsAndConditionsPage from "./pages/user/termsandcondition";
 import OtpPage from "./pages/user/otp";
 import ForgotPassword from "./pages/user/forgotpassword"; 
 import ResetPassword from "./pages/user/resetpassword"; 
-
-import CategoriesPage from "./pages/logged-in/categories/categoriespage";
+import CategoriesPage from "./pages/logged-in/categories/CategoriesPage";
 import AlphabetPage from "./pages/logged-in/categories/alphabet"; 
 import AlphabetTutorial from "./pages/logged-in/categories/alphabettutorial";
 
