@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import type { Category } from "../../types/category";
 import { categoryThemes } from "../../data/categoryThemes";
@@ -14,8 +15,14 @@ export default function CategoryCard({
   const navigate = useNavigate();
 
   const handleCategoryClick = () => {
-    if (category.title.toLowerCase() === "alphabet") {
+    const title = category.title.toLowerCase();
+
+    if (title === "alphabet") {
       navigate("/alphabet");
+    } else if (title === "greetings") {
+      navigate("/greetings");
+    } else if (title === "numbers") {
+      navigate("/numbers");
     }
   };
 
@@ -37,6 +44,7 @@ export default function CategoryCard({
     >
       {/* Left Content */}
       <div className="flex items-center gap-3">
+
         {/* Icon Container */}
         <div className="flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32">
           <img

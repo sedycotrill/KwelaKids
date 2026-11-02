@@ -8,8 +8,17 @@ import ForgotPassword from "./pages/user/forgotpassword";
 import ResetPassword from "./pages/user/resetpassword"; 
 
 import CategoriesPage from "./pages/logged-in/categories/categoriespage";
-import AlphabetPage from "./pages/logged-in/categories/alphabet"; 
-import AlphabetTutorial from "./pages/logged-in/categories/alphabettutorial";
+
+import AlphabetPage from "./pages/logged-in/alphabet/alphabet"; 
+import AlphabetTutorial from "./pages/logged-in/alphabet/alphabettutorial";
+import AlphabetComplete from "./pages/logged-in/alphabet/alphabetcomplete";
+import AlphabetQuiz from "./pages/logged-in/alphabet/alphabetquiz";
+
+import NumbersPage from "./pages/logged-in/numbers/numbers";
+import NumbersTutorial from "./pages/logged-in/numbers/numberstutorial";
+
+import GreetingsPage from "./pages/logged-in/greetings/greetings";
+import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
 
 function App() {
   return (
@@ -19,13 +28,22 @@ function App() {
         <Route path="/" element={<Navigate to="/signin" replace />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/termsandcondition" element={<TermsAndConditionsPage />} />
         <Route path="/otp" element={<OtpPage />} />
         <Route path="/forgotpassword" element={<ForgotPassword />} />
         <Route path="/resetpassword" element={<ResetPassword />} />
+
+        <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/alphabet" element={<AlphabetPage />} /> 
         <Route path="/alphabettutorial" element={<AlphabetTutorial />} />
+        <Route path="/alphabetcomplete" element={<AlphabetComplete />} />
+        <Route path="/alphabetquiz" element={<AlphabetQuiz />} />
+
+        <Route path="/numbers" element={<NumbersPage />} />
+        <Route path="/numberstutorial" element={<NumbersTutorial />} />
+
+        <Route path="/greetings" element={<GreetingsPage />} />
+        <Route path="/greetingstutorial" element={<GreetingsTutorial />} />
       </Routes>
     </AudioProvider>
   );

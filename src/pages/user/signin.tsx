@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -94,8 +93,7 @@ export default function SignIn() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden relative">
-      {/* Global Audio Control Component */}
+    <main className="relative min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden">
       <AudioWidget />
 
       <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
@@ -134,11 +132,7 @@ export default function SignIn() {
               </p>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              noValidate
-              className="space-y-4"
-            >
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               {/* Email */}
               <div>
                 <label htmlFor="email" className="sr-only">
@@ -217,9 +211,7 @@ export default function SignIn() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword((previous) => !previous)
-                    }
+                    onClick={() => setShowPassword((previous) => !previous)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     className="ml-2 shrink-0 text-gray-700 transition hover:text-[#6254F5]"
                   >

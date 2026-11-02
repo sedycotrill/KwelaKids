@@ -1,11 +1,10 @@
-
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
-import background from "../../assets/bgforotp.png";
-import person from "../../assets/forgotpasswordgurl.png";
+import background from "../../assets/bgforotp.svg";
+import person from "../../assets/forgotpasswordgurl.svg";
 
 type Account = {
   id: string;

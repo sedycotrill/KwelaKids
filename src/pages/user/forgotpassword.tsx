@@ -3,8 +3,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import background from "../../assets/bgforotp.png";
-import person from "../../assets/forgotpasswordgurl.png";
+import background from "../../assets/bgforotp.svg";
+import person from "../../assets/forgotpasswordgurl.svg";
 
 type Account = {
   id: string;

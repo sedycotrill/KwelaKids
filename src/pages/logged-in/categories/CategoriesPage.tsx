@@ -1,7 +1,7 @@
 import MainLayout from "../../../components/layout/MainLayout";
 import CategoryList from "../../../components/category/CategoryList";
 import { categories } from "../../../data/categories";
-import bgImage from "../../../assets/bgforlistoflesson.png";
+import bgImage from "../../../assets/bgforlistoflesson.svg";
 
 export default function CategoriesPage() {
   return (

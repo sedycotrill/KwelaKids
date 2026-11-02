@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import background from "../../assets/bgforotp.png";
-import person from "../../assets/personotponly.png";
+import background from "../../assets/bgforotp.svg";
+import person from "../../assets/personotponly.svg";
 
 type Account = {
   id: string;
