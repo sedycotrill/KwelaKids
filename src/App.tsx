@@ -1,6 +1,6 @@
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AudioProvider } from "./context/AudioContext";
+import { LanguageProvider } from "./context/LanguageContext"; // I-import ang LanguageProvider
 
 import SignIn from "./pages/user/signin";
 import SignUp from "./pages/user/signup";
@@ -25,28 +25,30 @@ import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
 function App() {
   return (
     <AudioProvider>
-      <Routes>
-        <Route path="/" element={<Navigate to="/signin" replace />} />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/termsandcondition" element={<TermsAndConditionsPage />} />
-        <Route path="/otp" element={<OtpPage />} />
-        <Route path="/forgotpassword" element={<ForgotPassword />} />
-        <Route path="/resetpassword" element={<ResetPassword />} />
+      <LanguageProvider> {/* I-wrap dito para maabot ng buong app */}
+        <Routes>
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/termsandcondition" element={<TermsAndConditionsPage />} />
+          <Route path="/otp" element={<OtpPage />} />
+          <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route path="/resetpassword" element={<ResetPassword />} />
 
-        <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
 
-        <Route path="/alphabet" element={<AlphabetPage />} />
-        <Route path="/alphabettutorial" element={<AlphabetTutorial />} />
-        <Route path="/alphabetcomplete" element={<AlphabetComplete />} />
-        <Route path="/alphabetquiz" element={<AlphabetQuiz />} />
+          <Route path="/alphabet" element={<AlphabetPage />} />
+          <Route path="/alphabettutorial" element={<AlphabetTutorial />} />
+          <Route path="/alphabetcomplete" element={<AlphabetComplete />} />
+          <Route path="/alphabetquiz" element={<AlphabetQuiz />} />
 
-        <Route path="/numbers" element={<NumbersPage />} />
-        <Route path="/numberstutorial" element={<NumbersTutorial />} />
+          <Route path="/numbers" element={<NumbersPage />} />
+          <Route path="/numberstutorial" element={<NumbersTutorial />} />
 
-        <Route path="/greetings" element={<GreetingsPage />} />
-        <Route path="/greetingstutorial" element={<GreetingsTutorial />} />
-      </Routes>
+          <Route path="/greetings" element={<GreetingsPage />} />
+          <Route path="/greetingstutorial" element={<GreetingsTutorial />} />
+        </Routes>
+      </LanguageProvider>
     </AudioProvider>
   );
 }
