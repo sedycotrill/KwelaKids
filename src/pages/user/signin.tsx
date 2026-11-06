@@ -7,6 +7,7 @@ import { AudioWidget } from "../../context/AudioWidget";
 import girlImage from "../../assets/signingurl.svg";
 import girlBackground from "../../assets/roughedit.svg";
 import logo from "../../assets/multipurposever.svg";
+import { supabase } from "../../lib/supabase";
 
 type Account = {
   id: string;
@@ -25,72 +26,48 @@ export default function SignIn() {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
+) => {
     event.preventDefault();
 
     setEmailError("");
     setPasswordError("");
 
-    let hasError = false;
-
     if (!email.trim()) {
-      setEmailError("Please enter your email.");
-      hasError = true;
+        setEmailError("Please enter your email.");
+        return;
     }
 
     if (!password) {
-      setPasswordError("Please enter your password.");
-      hasError = true;
+        setPasswordError("Please enter your password.");
+        return;
     }
-
-    if (hasError) return;
 
     try {
-      const storedAccounts = localStorage.getItem("kwelakids_accounts");
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+        });
 
-      const accounts: Account[] = storedAccounts
-        ? JSON.parse(storedAccounts)
-        : [];
+        if (error) {
+            setEmailError("Invalid email or password.");
+            setPasswordError("Invalid email or password.");
+            return;
+        }
 
-      const matchedAccount = accounts.find(
-        (account) =>
-          account.email.toLowerCase() === email.trim().toLowerCase() &&
-          account.password === password
-      );
+        if (!data.user) {
+            setEmailError("Unable to retrieve your account.");
+            return;
+        }
 
-      if (!matchedAccount) {
-        setEmailError("Invalid email or password.");
-        setPasswordError("Invalid email or password.");
-        return;
-      }
+        navigate("/categories", { replace: true });
 
-      const currentUser = {
-        id: matchedAccount.id,
-        email: matchedAccount.email,
-      };
-
-      if (rememberMe) {
-        localStorage.setItem(
-          "kwelakids_current_user",
-          JSON.stringify(currentUser)
-        );
-
-        sessionStorage.removeItem("kwelakids_current_user");
-      } else {
-        sessionStorage.setItem(
-          "kwelakids_current_user",
-          JSON.stringify(currentUser)
-        );
-
-        localStorage.removeItem("kwelakids_current_user");
-      }
-
-      navigate("/categories", { replace: true });
     } catch (error) {
-      console.error("Sign in error:", error);
-      setEmailError("Something went wrong. Please try again.");
+        console.error("Sign in error:", error);
+        setEmailError("Something went wrong. Please try again.");
     }
-  };
+};
 
   return (
     <main className="relative min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden">
