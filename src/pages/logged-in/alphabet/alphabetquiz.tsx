@@ -1,139 +1,266 @@
-import { useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock, Play } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 
-import Lightbulb from "../../../assets/lightbulb.svg";
+import theoreticalImage from "../../../assets/theoretical.svg";
+import practicalImage from "../../../assets/practical.svg";
+import championshipImage from "../../../assets/championship.svg";
+import ropeImage from "../../../assets/rope.svg";
 
-export default function AlphabetQuiz() {
+interface IslandProps {
+  image: string;
+  name: string;
+  actionLabel: string;
+  locked: boolean;
+  ariaLabel: string;
+  onOpen: () => void;
+  className?: string;
+}
+
+function Island({
+  image,
+  name,
+  actionLabel,
+  locked,
+  ariaLabel,
+  onOpen,
+  className = "",
+}: IslandProps) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={locked}
+      aria-label={ariaLabel}
+      className={`
+        group z-10 flex flex-col items-center rounded-3xl
+        focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-400
+        ${locked ? "cursor-not-allowed pointer-events-none opacity-60" : "cursor-pointer pointer-events-auto"}
+        ${className}
+      `}
+    >
+      {/* Island picture */}
+      <span className="relative flex h-40 w-40 items-center justify-center overflow-visible sm:h-56 sm:w-56">
+        <img
+          src={image}
+          alt=""
+          aria-hidden="true"
+          className={`
+            pointer-events-none h-full w-full scale-400 object-contain
+            transition-all duration-300 ease-in-out motion-reduce:transition-none
+            ${
+              locked
+                ? "grayscale"
+                : `group-hover:-translate-y-2 group-hover:brightness-110
+                   group-hover:drop-shadow-[0_0_18px_rgba(255,210,50,0.8)]
+                   group-active:scale-380`
+            }
+          `}
+        />
+      </span>
+
+      {/* Name */}
+      <span className="mt-1 rounded-full bg-white/80 px-4 py-1 text-base font-black text-[#164B9B] shadow-xs sm:text-lg">
+        {name}
+      </span>
+
+      {/* Action / status pill */}
+      <span
+        className={`
+          mt-2 flex items-center gap-2 whitespace-nowrap rounded-full border-b-4 px-5 py-2
+          text-base font-extrabold transition-all duration-150 motion-reduce:transition-none
+          ${
+            locked
+              ? "border-slate-300 bg-slate-100 text-slate-500"
+              : "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8] group-hover:-translate-y-0.5 group-hover:bg-[#D8BCFF] group-active:translate-y-0.5 group-active:border-b-2"
+          }
+        `}
+      >
+        {locked ? (
+          <Lock size={18} aria-hidden="true" />
+        ) : (
+          <Play size={18} aria-hidden="true" className="fill-current" />
+        )}
+        {actionLabel}
+      </span>
+    </button>
+  );
+}
+
+export default function AlphabetPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const isTagalog = language === "tl";
 
-  const answers = [
+  const [isTutorialCompleted, setIsTutorialCompleted] = useState(false);
+  const [hasPassedPractical, setHasPassedPractical] = useState(false);
+
+  useEffect(() => {
+    try {
+      // Kunin ang current user email para hiwalay ang progress ng bawat account
+      const storedUser =
+        localStorage.getItem("kwelakids_current_user") ||
+        sessionStorage.getItem("kwelakids_current_user");
+      const currentUser = storedUser ? JSON.parse(storedUser) : null;
+      const userEmail = currentUser?.email || "default_user";
+
+      // Basahin ang tutorial status para sa account na ito
+      const tutorialDone =
+        localStorage.getItem(`kwelakids_${userEmail}_alphabet_tutorial_completed`) === "true";
+      setIsTutorialCompleted(tutorialDone);
+
+      // Basahin ang practical pass status para sa account na ito
+      const practicalPassed =
+        localStorage.getItem(`kwelakids_${userEmail}_alphabet_practical_passed`) === "true";
+      setHasPassedPractical(practicalPassed);
+    } catch {
+      // fallback kung may error sa storage
+    }
+  }, []);
+
+  const comingSoon = isTagalog ? "Malapit na" : "Coming soon";
+  
+  const theoreticalPlayLabel = isTutorialCompleted
+    ? isTagalog ? "Rebyuhin" : "Review"
+    : isTagalog ? "Simulan" : "Start";
+
+  const playLabel = isTagalog ? "Maglaro" : "Play";
+
+  const islands = [
     {
-      letter: "A",
-      color: "bg-[#BDE3FA]",
-      border: "border-[#55B9F8]",
-      text: "text-[#2196E1]",
+      id: 1,
+      image: theoreticalImage,
+      name: isTagalog ? "Teorya" : "Theoretical",
+      position: "left-[13%] top-[52%]",
+      locked: false, // Laging bukas ang Teorya / Tutorial sa simula
+      actionLabel: theoreticalPlayLabel,
+      onOpen: () => {
+        navigate("/alphabettutorial");
+      },
     },
     {
-      letter: "C",
-      color: "bg-[#FFE49A]",
-      border: "border-[#E8C66B]",
-      text: "text-[#A8750C]",
+      id: 2,
+      image: practicalImage,
+      name: isTagalog ? "Praktis" : "Practical",
+      position: "left-[44%] top-[39%]",
+      // Naka-lock habang hindi pa tapos ang Tutorial (Level-by-level)
+      locked: !isTutorialCompleted, 
+      actionLabel: !isTutorialCompleted ? comingSoon : playLabel,
+      onOpen: () => {
+        navigate("/alphabetquiz");
+      },
     },
     {
-      letter: "B",
-      color: "bg-[#B9EDC2]",
-      border: "border-[#4BD77B]",
-      text: "text-[#35B968]",
-    },
-    {
-      letter: "D",
-      color: "bg-[#DED0FA]",
-      border: "border-[#B58AF5]",
-      text: "text-[#9B5DE5]",
+      id: 3,
+      image: championshipImage,
+      name: isTagalog ? "Kampeonato" : "Championship",
+      position: "right-[11%] top-[21%]",
+      // Naka-lock habang hindi pa nakakapasa sa Practical Quiz >= 70% (Level-by-level)
+      locked: !hasPassedPractical, 
+      actionLabel: !hasPassedPractical ? comingSoon : playLabel,
+      onOpen: () => {
+        navigate("/alphabetchampionship");
+      },
     },
   ];
 
+  const renderIsland = (
+    island: (typeof islands)[number],
+    className: string
+  ) => (
+    <Island
+      image={island.image}
+      name={island.name}
+      locked={island.locked}
+      actionLabel={island.actionLabel}
+      ariaLabel={
+        island.locked
+          ? `${island.name}: ${comingSoon}`
+          : isTagalog
+            ? `Buksan ang ${island.name}`
+            : `Open ${island.name}`
+      }
+      onOpen={island.onOpen}
+      className={className}
+    />
+  );
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-
-      {/* SUB-HEADER BAR PARA SA TITLE AT BACK BUTTON */}
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 pt-6 z-20 relative">
+      {/* SUB-HEADER: back button and category title */}
+      <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate("/alphabet")}
-            aria-label="Back to alphabet menu"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white border border-[#B8DDF6] text-[#36A9F4] shadow-xs transition hover:bg-slate-50 hover:scale-105"
+            onClick={() => navigate("/categories")}
+            aria-label={isTagalog ? "Bumalik sa mga kategorya" : "Back to categories"}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
           >
             <ArrowLeft size={22} strokeWidth={2.5} />
           </button>
           <div>
             <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-              {language === "tl" ? "Pagsusulit sa Alpabeto" : "Alphabet Quiz"}
+              {isTagalog ? "Alpabeto" : "Alphabet"}
             </h1>
-            <p className="text-xs text-slate-600 sm:text-sm font-medium">
-              {language === "tl"
-                ? "Subukan ang iyong natutunan sa Filipino Sign Language."
-                : "Test your knowledge of the Filipino Sign Language alphabet."}
+            <p className="text-sm font-medium text-slate-600 sm:text-base">
+              {isTagalog
+                ? "Matutunan ang mga titik ng alpabetong Filipino."
+                : "Learn the letters of the Filipino alphabet."}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Decorative Clouds */}
+      {/* Clouds */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
 
-      {/* Bottom Clouds */}
+      {/* Decorative Bottom Clouds */}
       <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
       <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
-      {/* Quiz Content */}
-      <section className="absolute left-[5.3%] right-[4.2%] top-[35.5%] z-10 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-[2%]">
+      {/* ===== PHONES AND TABLETS: islands stacked in a zigzag path ===== */}
+      <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8 lg:hidden">
+        {islands.map((island, index) => (
+          <Fragment key={island.id}>
+            {index > 0 && (
+              <div
+                aria-hidden="true"
+                className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
+              />
+            )}
+            {renderIsland(island, index % 2 === 0 ? "self-start" : "self-end")}
+          </Fragment>
+        ))}
+      </div>
 
-        {/* Question Card */}
-        <div className="h-75 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-[0_2px_2px_rgba(0,0,0,0.25)] sm:h-75">
-          {/* Question Header */}
-          <div className="flex h-15 items-center border-b border-[#E5EDF3] bg-[#F5F9FC] px-5">
-            <img
-              src={Lightbulb}
-              alt="Lightbulb"
-              className="h-15 w-15 object-contain mr-3"
-            />
+      {/* ===== DESKTOP: the original map with ropes ===== */}
+      <div className="absolute inset-0 hidden lg:block">
+        {/* Rope 1: Theoretical to Practical */}
+        <img
+          src={ropeImage}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
+        />
 
-            <h2 className="text-sm sm:text-base font-bold text-[#454545]">
-              {language === "tl"
-                ? "Anong titik ang isinasaad ng senyas ng kamay?"
-                : "What letter does the hand sign signify?"}
-            </h2>
-          </div>
+        {/* Rope 2: Practical to Championship */}
+        <img
+          src={ropeImage}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
+        />
 
-          {/* Hand Sign */}
-          <div className="flex h-60 items-center justify-center">
-            <div className="flex h-35 w-35 items-center justify-center rounded-[45%] bg-[#E2F2FC]">
-              <span className="text-[100px] drop-shadow-sm">
-                🤙
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Answer Choices */}
-        <div className="grid grid-cols-2 gap-4">
-          {answers.map((answer) => (
-            <button
-              key={answer.letter}
-              type="button"
-              onClick={() => setSelectedAnswer(answer.letter)}
-              className={`
-                flex h-33.75 items-center justify-center
-                rounded-2xl border
-                ${answer.color}
-                ${answer.border}
-                ${answer.text}
-                text-4xl font-black
-                shadow-[0_2px_2px_rgba(0,0,0,0.2)]
-                transition-all duration-200
-                hover:brightness-105
-                active:scale-95
-                ${
-                  selectedAnswer === answer.letter
-                    ? "ring-4 ring-white ring-offset-2"
-                    : ""
-                }
-              `}
-            >
-              {answer.letter}
-            </button>
-          ))}
-        </div>
-      </section>
+        {islands.map((island) => (
+          <Fragment key={island.id}>
+            {renderIsland(island, `absolute ${island.position}`)}
+          </Fragment>
+        ))}
+      </div>
     </main>
   );
 }

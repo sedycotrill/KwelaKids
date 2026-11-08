@@ -1,25 +1,63 @@
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import confetti from "canvas-confetti";
 import type { Category } from "../../types/category";
 import { categoryThemes } from "../../data/categoryThemes";
+import { useLanguage } from "../../context/LanguageContext";
 import CircleArrowButton from "../ui/CircleArrowButton";
 
 interface CategoryCardProps {
   category: Category;
 }
 
-export default function CategoryCard({
-  category,
-}: CategoryCardProps) {
+// Tagalog text, keyed by the lowercase English title.
+// If a category has no entry here, the card falls back to its English text.
+const TAGALOG_TEXT: Record<string, { title: string; description: string }> = {
+  alphabet: {
+    title: "Alpabeto",
+    description: "Alamin ang mga letra ng alpabetong Filipino.",
+  },
+  numbers: {
+    title: "Mga Numero",
+    description: "Alamin kung paano i-sign ang 1 hanggang 10.",
+  },
+  greetings: {
+    title: "Mga Pagbati",
+    description: "Alamin kung paano bumati gamit ang sign language.",
+  },
+  phrase: {
+    title: "Mga Parirala",
+    description: "Alamin ang mga karaniwang parirala sa sign language.",
+  },
+  phrases: {
+    title: "Mga Parirala",
+    description: "Alamin ang mga karaniwang parirala sa sign language.",
+  },
+};
+
+export default function CategoryCard({ category }: CategoryCardProps) {
   const theme = categoryThemes[category.theme];
   const navigate = useNavigate();
+  const { language } = useLanguage();
+
+  // Stops repeated clicks from firing confetti and navigation many times
+  const isLeaving = useRef(false);
+
+  const key = category.title.toLowerCase();
+
+  const tagalog = TAGALOG_TEXT[key];
+  const displayTitle =
+    language === "tl" && tagalog ? tagalog.title : category.title;
+  const displayDescription =
+    language === "tl" && tagalog ? tagalog.description : category.description;
 
   const handleCategoryClick = () => {
-    const title = category.title.toLowerCase();
+    if (isLeaving.current) return;
+    isLeaving.current = true;
 
-    // 1. Kunin ang eksaktong posisyon ng button sa pamamagitan ng ID ng wrapper nito
+    // 1. Find the exact position of the arrow button for the confetti origin
     const buttonElement = document.getElementById(`btn-${category.id}`);
-    
+
     let x = 0.5;
     let y = 0.5;
 
@@ -29,57 +67,73 @@ export default function CategoryCard({
       y = (rect.top + rect.height / 2) / window.innerHeight;
     }
 
-    // 2. Pumili ng kulay base sa kategorya para sa mga bata
+    // 2. Pick confetti colors based on the category
     let confettiColors = ["#6254F5", "#8275FF", "#FFD700"];
 
-    if (title === "alphabet") {
+    if (key === "alphabet") {
       confettiColors = ["#0284c7", "#38bdf8", "#bae6fd"];
-    } else if (title === "numbers") {
+    } else if (key === "numbers") {
       confettiColors = ["#10b981", "#34d399", "#a7f3d0"];
-    } else if (title === "greetings") {
+    } else if (key === "greetings") {
       confettiColors = ["#f59e0b", "#fbbf24", "#fde68a"];
-    } else if (title === "phrase" || title === "phrases") {
+    } else if (key === "phrase" || key === "phrases") {
       confettiColors = ["#8b5cf6", "#a78bfa", "#ddd6fe"];
     }
 
-    // 3. I-burst ang confetti mismo mula sa button nang mabagal (floaty)
+    // 3. Slow, floaty confetti burst from the arrow button
     confetti({
       particleCount: 50,
       spread: 70,
-      startVelocity: 25, // Mababang bilis sa simula
-      gravity: 0.5,      // Mababang gravity para mabagal ang pagbagsak
+      startVelocity: 25,
+      gravity: 0.5,
       drift: 0,
-      scalar: 1.2,       // Mas malalaking piraso para masaya sa mga bata
-      ticks: 200,        // Mas matagal bago mawala
-      origin: { x, y },  // Mismo sa gitna ng arrow button
+      scalar: 1.2,
+      ticks: 200,
+      origin: { x, y },
       colors: confettiColors,
+      disableForReducedMotion: true,
     });
 
-    // 4. Maghintay ng kaunti para maranasan ang animation bago lumipat ng page
+    // 4. Wait a moment so the animation can be seen before changing page
     setTimeout(() => {
-      if (title === "alphabet") {
+      if (key === "alphabet") {
         navigate("/alphabet");
-      } else if (title === "greetings") {
+      } else if (key === "greetings") {
         navigate("/greetings");
-      } else if (title === "numbers") {
+      } else if (key === "numbers") {
         navigate("/numbers");
-      } else if (title === "phrase" || title === "phrases") {
+      } else if (key === "phrase" || key === "phrases") {
         navigate("/phrase");
+      } else {
+        // Unknown category: let the child try again
+        isLeaving.current = false;
       }
     }, 600);
   };
 
   return (
+    // The whole card is tappable. The arrow button below stays the keyboard
+    // and screen reader control; its click bubbles up to this handler.
     <div
+      onClick={handleCategoryClick}
       className={`
         ${theme.card}
+        group
         flex
+        cursor-pointer
         flex-col
         gap-4
         rounded-3xl
         px-5
         py-4
         transition-all
+        duration-200
+        hover:-translate-y-1
+        hover:shadow-lg
+        active:translate-y-0
+        active:scale-98
+        motion-reduce:transition-none
+        motion-reduce:hover:translate-y-0
         sm:flex-row
         sm:items-center
         sm:justify-between
@@ -87,18 +141,17 @@ export default function CategoryCard({
     >
       {/* Left Content */}
       <div className="flex items-center gap-3">
-
         {/* Icon Container */}
         <div className="flex h-28 w-28 shrink-0 items-center justify-center sm:h-32 sm:w-32">
           <img
             src={category.image}
-            alt={category.title}
-            className="h-full w-full object-cover"
+            alt={displayTitle}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:-rotate-3 group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:transform-none"
           />
         </div>
 
         {/* Text */}
-        <div>
+        <div className="min-w-0">
           <h3
             className={`
               text-2xl
@@ -107,20 +160,25 @@ export default function CategoryCard({
               ${theme.title}
             `}
           >
-            {category.title}
+            {displayTitle}
           </h3>
 
-          <p className="text-slate-600">
-            {category.description}
+          <p className="text-base text-slate-600 sm:text-lg">
+            {displayDescription}
           </p>
         </div>
       </div>
 
-      {/* Arrow Button na binigyan ng unique ID para sa confetti coordinates */}
-      <div id={`btn-${category.id}`} className="self-end sm:self-auto">
+      {/* Arrow button with a unique ID for the confetti coordinates */}
+      <div
+        id={`btn-${category.id}`}
+        className="self-end transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:transform-none sm:self-auto"
+      >
         <CircleArrowButton
           color={theme.button}
-          onClick={handleCategoryClick}
+          onClick={() => {
+            /* the click bubbles up to the card, which handles it once */
+          }}
         />
       </div>
     </div>
