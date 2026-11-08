@@ -25,14 +25,6 @@ const TAGALOG_TEXT: Record<string, { title: string; description: string }> = {
     title: "Mga Pagbati",
     description: "Alamin kung paano bumati gamit ang sign language.",
   },
-  phrase: {
-    title: "Mga Parirala",
-    description: "Alamin ang mga karaniwang parirala sa sign language.",
-  },
-  phrases: {
-    title: "Mga Parirala",
-    description: "Alamin ang mga karaniwang parirala sa sign language.",
-  },
 };
 
 export default function CategoryCard({ category }: CategoryCardProps) {
@@ -76,8 +68,6 @@ export default function CategoryCard({ category }: CategoryCardProps) {
       confettiColors = ["#10b981", "#34d399", "#a7f3d0"];
     } else if (key === "greetings") {
       confettiColors = ["#f59e0b", "#fbbf24", "#fde68a"];
-    } else if (key === "phrase" || key === "phrases") {
-      confettiColors = ["#8b5cf6", "#a78bfa", "#ddd6fe"];
     }
 
     // 3. Slow, floaty confetti burst from the arrow button
@@ -102,8 +92,6 @@ export default function CategoryCard({ category }: CategoryCardProps) {
         navigate("/greetings");
       } else if (key === "numbers") {
         navigate("/numbers");
-      } else if (key === "phrase" || key === "phrases") {
-        navigate("/phrase");
       } else {
         // Unknown category: let the child try again
         isLeaving.current = false;

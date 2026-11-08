@@ -3,7 +3,6 @@ import type { Category } from "../types/category";
 import alphabetImage from "../assets/alphabet.svg";
 import numbersImage from "../assets/numbers.svg";
 import greetingsImage from "../assets/greetings.svg";
-import phrasesImage from "../assets/phrases.svg";
 
 export const categories: Category[] = [
   {
@@ -26,12 +25,5 @@ export const categories: Category[] = [
     description: "Learn common greetings and polite expressions.",
     image: greetingsImage,
     theme: "yellow",
-  },
-  {
-    id: 4,
-    title: "Phrase",
-    description: "Learn common greetings and polite expressions.",
-    image: phrasesImage,
-    theme: "purple",
-  },
+  }
 ];
