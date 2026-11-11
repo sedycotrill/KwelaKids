@@ -23,6 +23,7 @@ import AlphabetTutorial from "./pages/logged-in/alphabet/alphabettutorial";
 import AlphabetTutorial2 from "./pages/logged-in/alphabet/alphabettutorial2";
 import AlphabetComplete from "./pages/logged-in/alphabet/alphabetcomplete";
 import AlphabetQuiz from "./pages/logged-in/alphabet/alphabetquiz";
+import AlphabetChampionship from "./pages/logged-in/alphabet/alphabetchampionship";
 
 import NumbersPage from "./pages/logged-in/numbers/numbers";
 import NumbersTutorial from "./pages/logged-in/numbers/numberstutorial";
@@ -113,6 +114,11 @@ function App() {
                             <Route
                                 path="/alphabetquiz"
                                 element={<AlphabetQuiz />}
+                            />
+                            
+                            <Route
+                                path="/championship"
+                                element={<AlphabetChampionship />}
                             />
 
                             {/* Numbers */}
