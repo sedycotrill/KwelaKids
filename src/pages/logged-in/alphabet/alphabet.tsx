@@ -1,15 +1,22 @@
 
 import { Fragment, useState, useEffect } from "react";
+
 import { useNavigate } from "react-router-dom";
+
 import { ArrowLeft, Lock, Play } from "lucide-react";
 
 import { useLanguage } from "../../../context/LanguageContext";
+
 import { useAuth } from "../../../context/AuthContext";
+
 import { supabase } from "../../../lib/supabase";
 
 import theoreticalImage from "../../../assets/theoretical.svg";
+
 import practicalImage from "../../../assets/practical.svg";
+
 import championshipImage from "../../../assets/championship.svg";
+
 import ropeImage from "../../../assets/rope.svg";
 
 interface IslandProps {
@@ -105,6 +112,7 @@ export default function AlphabetPage() {
     const navigate = useNavigate();
 
     const { language } = useLanguage();
+
     const { user, loading: authLoading } = useAuth();
 
     const isTagalog = language === "tl";
@@ -112,9 +120,9 @@ export default function AlphabetPage() {
     // Learner progression
     const [isTutorialCompleted, setIsTutorialCompleted] = useState(false);
 
-    // Database loading and error handling
-    const [isProgressLoading, setIsProgressLoading] = useState(true);
+    // Database error handling
     const [progressError, setProgressError] = useState("");
+
     const [reloadVersion, setReloadVersion] = useState(0);
 
     // Fetch the authenticated learner's alphabet progress
@@ -128,13 +136,11 @@ export default function AlphabetPage() {
                 if (isMounted) {
                     setIsTutorialCompleted(false);
                     setProgressError("");
-                    setIsProgressLoading(false);
                 }
 
                 return;
             }
 
-            setIsProgressLoading(true);
             setProgressError("");
 
             try {
@@ -167,10 +173,6 @@ export default function AlphabetPage() {
 
                     setIsTutorialCompleted(false);
                 }
-            } finally {
-                if (isMounted) {
-                    setIsProgressLoading(false);
-                }
             }
         };
 
@@ -193,10 +195,7 @@ export default function AlphabetPage() {
 
     const playLabel = isTagalog ? "Maglaro" : "Play";
 
-    const loadingLabel = isTagalog
-        ? "Naglo-load..."
-        : "Loading...";
-
+    // Both Theoretical and Practical are accessible.
     const islands = [
         {
             id: 1,
@@ -214,14 +213,10 @@ export default function AlphabetPage() {
             image: practicalImage,
             name: isTagalog ? "Praktis" : "Practical",
             position: "left-[44%] top-[39%]",
-            locked: isProgressLoading || !isTutorialCompleted,
-            actionLabel: isProgressLoading
-                ? loadingLabel
-                : !isTutorialCompleted
-                    ? comingSoon
-                    : playLabel,
+            locked: false,
+            actionLabel: playLabel,
             onOpen: () => {
-                navigate("/alphabetquiz");
+                navigate("/alphabettutorial2");
             },
         },
         {
@@ -313,12 +308,16 @@ export default function AlphabetPage() {
 
             {/* Clouds */}
             <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
+
             <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
+
             <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
+
             <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
 
             {/* Decorative Bottom Clouds */}
             <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
+
             <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
             {/* PHONES AND TABLETS: islands stacked in a zigzag path */}

@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, RotateCcw, Award } from "lucide-react";
@@ -5,7 +6,7 @@ import { useLanguage } from "../../../context/LanguageContext";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "../../../lib/supabase";
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ALPHABET = "ABCDEFGHIJKLM".split("");
 
 const ALPHABET_TIMESTAMPS: Record<string, { start: number; end: number }> = {
   A: { start: 5, end: 7 },
@@ -21,19 +22,6 @@ const ALPHABET_TIMESTAMPS: Record<string, { start: number; end: number }> = {
   K: { start: 28, end: 29 },
   L: { start: 30, end: 31 },
   M: { start: 32, end: 34 },
-  N: { start: 34, end: 36 },
-  O: { start: 37, end: 39 },
-  P: { start: 39, end: 41 },
-  Q: { start: 41, end: 43 },
-  R: { start: 43, end: 45 },
-  S: { start: 45, end: 47 },
-  T: { start: 47, end: 49 },
-  U: { start: 50, end: 52 },
-  V: { start: 52, end: 53 },
-  W: { start: 54, end: 55 },
-  X: { start: 56, end: 57 },
-  Y: { start: 58, end: 59 },
-  Z: { start: 60, end: 63 },
 };
 
 const DESCRIPTIONS_EN: Record<string, string> = {
@@ -50,19 +38,6 @@ const DESCRIPTIONS_EN: Record<string, string> = {
   K: "Extend your index and middle fingers while keeping the other fingers curled. Position your thumb between the extended and curled fingers as demonstrated.",
   L: "Extend your index finger straight upward and your thumb sideways. Keep your middle, ring, and little fingers curled toward your palm to form an L shape.",
   M: "Curl all four fingers toward your palm to form a closed fist. Position your thumb underneath the curled fingers as shown in the video.",
-  N: "Curl your fingers toward your palm to form a fist. Keep your thumb tucked underneath the curled fingers.",
-  O: "Curve your fingers and thumb inward until they form a rounded shape. Bring the fingertips close together to create an O shape.",
-  P: "Bend your wrist and position your hand downward. Keep your fingers curled as demonstrated in the video.",
-  Q: "Position your hand downward while keeping your fingers curled. Follow the thumb and index finger placement shown in the video.",
-  R: "Extend your index finger upward while keeping your remaining fingers curled toward your palm. Follow the exact hand position shown in the video.",
-  S: "Curl all four fingers tightly into your palm to form a fist. Place your thumb across the front of your curled fingers.",
-  T: "Curl your fingers toward your palm and position your thumb between your fingers as demonstrated in the video.",
-  U: "Extend your index and middle fingers straight upward and keep them close together. Curl your remaining fingers toward your palm.",
-  V: "Extend your index and middle fingers upward and spread them apart to form a V shape. Curl your ring and little fingers toward your palm.",
-  W: "Extend your index, middle, and ring fingers upward and spread them apart. Keep your thumb and little finger folded toward your palm.",
-  X: "Curl your middle, ring, and little fingers toward your palm. Bend your index finger to form a hooked shape.",
-  Y: "Extend your thumb and little finger outward while keeping your other three fingers curled toward your palm.",
-  Z: "Extend your index finger while keeping your other fingers curled. Move your index finger to trace the letter Z in the air.",
 };
 
 const DESCRIPTIONS_TL: Record<string, string> = {
@@ -79,52 +54,80 @@ const DESCRIPTIONS_TL: Record<string, string> = {
   K: "Iunat ang hintuturo at gitna habang nakatiklop ang iba. Ilagay ang hinlalaki sa pagitan ng nakunat at nakatiklop na mga daliri.",
   L: "Iunat ang hintuturo paitaas at ang hinlalaki patagilid para bumuo ng hugis L habang nakatiklop ang ibang mga daliri.",
   M: "Tiklupin ang apat na daliri patungo sa palad para bumuo ng saradong kamao. Ilagay ang hinlalaki sa ilalim ng mga daliri.",
-  N: "Tiklupin ang mga daliri patungo sa palad para bumuo ng kamao. Itago ang hinlalaki sa ilalim ng mga nakatiklop na daliri.",
-  O: "Ikurba ang mga daliri at hinlalaki hanggang sa bumuo ito ng bilog na hugis. Paglapitin ang mga dulo ng daliri.",
-  P: "Baluktutin ang pulso at ibaba ang kamay. Panatilihing nakatiklop ang mga daliri gaya ng ipinapakita sa video.",
-  Q: "Iposisyon ang kamay pababa habang nakatiklop ang mga daliri. Sundin ang tamang pagkakalagay ng hinlalaki at hintuturo.",
-  R: "Iunat ang hintuturo paitaas habang nakatiklop ang iba pang mga daliri. Sundin ang eksaktong posisyon ng kamay sa video.",
-  S: "Tiklupin nang mahigpit ang lahat ng apat na daliri sa palad para maging kamao. Ilagay ang hinlalaki sa harap.",
-  T: "Tiklupin ang mga daliri at ilagay ang hinlalaki sa pagitan ng mga daliri gaya ng ipinakita sa video.",
-  U: "Iunat ang hintuturo at gitna paitaas nang magkakalapit. Tiklupin ang natitirang mga daliri patungo sa palad.",
-  V: "Iunat ang hintuturo at gitna paitaas at paglayuin ito para bumuo ng V. Tiklupin ang singsing at kalingkingan.",
-  W: "Iunat ang hintuturo, gitna, at singsing paitaas at paglayuin. Itupi ang hinlalaki at kalingkingan sa palad.",
-  X: "Tiklupin ang gitna, singsing, at kalingkingan. Baluktutin ang hintuturo upang bumuo ng hugis kawit.",
-  Y: "Iunat ang hinlalaki at kalingkingan palabas habang nakatiklop ang tatlong natitirang daliri sa palad.",
-  Z: "Iunat ang hintuturo habang nakatiklop ang iba. Iguhit ang titik Z sa hangin gamit ang iyong hintuturo.",
 };
 
-// Mga tanong sa Quick Test na may kasamang tamang timestamp para sa video
-const QUICK_TEST_QUESTIONS = [
-  {
-    questionEn: "Which letter matches this FSL sign?",
-    questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
-    letter: "A",
-    answer: "A",
-    options: ["A", "C", "E", "S"]
-  },
-  {
-    questionEn: "Which letter matches this FSL sign?",
-    questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
-    letter: "U",
-    answer: "U",
-    options: ["U", "V", "W", "L"]
-  },
-  {
-    questionEn: "Which letter matches this FSL sign?",
-    questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
-    letter: "D",
-    answer: "D",
-    options: ["B", "D", "I", "L"]
+// Each checkpoint gets three distinct questions.
+// The generated questions are saved in the assessment attempt.
+
+const TEST_START_INDEX = 0;
+const CHECKPOINT_AFTER_INDEX = 5;
+const QUICK_TEST_LENGTH = 3;
+
+type QuickTestQuestion = {
+  questionEn: string;
+  questionTl: string;
+  letter: string;
+  answer: string;
+  options: string[];
+};
+
+const seededRandom = (seedText: string) => {
+  let seed = 0;
+
+  for (let i = 0; i < seedText.length; i += 1) {
+    seed = (seed * 31 + seedText.charCodeAt(i)) >>> 0;
   }
-];
 
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+};
 
-export default function AlphabetTutorial() {
+const shuffleWithSeed = <T,>(
+  items: T[],
+  random: () => number
+): T[] => {
+  const shuffled = [...items];
+
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
+};
+
+const createQuickTestQuestions = (
+  letterPool: string[],
+  seed: string
+): QuickTestQuestion[] => {
+  const random = seededRandom(seed);
+  const questionLetters = shuffleWithSeed(letterPool, random).slice(
+    0,
+    QUICK_TEST_LENGTH
+  );
+
+  return questionLetters.map((letter) => {
+    const distractors = shuffleWithSeed(
+      letterPool.filter((candidate) => candidate !== letter),
+      random
+    ).slice(0, 3);
+
+    return {
+      questionEn: "Which letter matches this FSL sign?",
+      questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
+      letter,
+      answer: letter,
+      options: shuffleWithSeed([letter, ...distractors], random),
+    };
+  });
+};
+
+export default function AlphabetTutorialPart1() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
-
   const isTagalog = language === "tl";
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -132,10 +135,16 @@ export default function AlphabetTutorial() {
   const [testIndex, setTestIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-
-  const [answers, setAnswers] = useState<(string | null)[]>(() =>
-    QUICK_TEST_QUESTIONS.map(() => null)
+  const [answers, setAnswers] = useState<(string | null)[]>(
+    Array(QUICK_TEST_LENGTH).fill(null)
   );
+  const [quickTestQuestions, setQuickTestQuestions] = useState<
+    QuickTestQuestion[]
+  >([]);
+  const [quickTestAttemptId, setQuickTestAttemptId] = useState<string | null>(
+    null
+  );
+  const [partCompleted, setPartCompleted] = useState(false);
 
   const [progressLoading, setProgressLoading] = useState(true);
   const [progressSaving, setProgressSaving] = useState(false);
@@ -144,8 +153,6 @@ export default function AlphabetTutorial() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const testVideoRef = useRef<HTMLVideoElement>(null);
   const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  // Serialize saves so older requests cannot overwrite newer progress.
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const pendingSaves = useRef(0);
 
@@ -153,183 +160,37 @@ export default function AlphabetTutorial() {
   const currentLetter = ALPHABET[currentIndex];
   const isLast = currentIndex === total - 1;
 
-  const timestamp = ALPHABET_TIMESTAMPS[currentLetter];
+  const checkpointNumber = currentIndex > CHECKPOINT_AFTER_INDEX ? 2 : 1;
 
+  const checkpointLetters =
+    checkpointNumber === 1
+      ? ALPHABET.slice(0, CHECKPOINT_AFTER_INDEX + 1)
+      : ALPHABET.slice(CHECKPOINT_AFTER_INDEX + 1);
+
+  const QUICK_TEST_QUESTIONS =
+    quickTestQuestions.length === QUICK_TEST_LENGTH
+      ? quickTestQuestions
+      : createQuickTestQuestions(
+          checkpointLetters,
+          `${user?.id ?? "guest"}-part1-checkpoint-${checkpointNumber}`
+        );
+
+  const timestamp = ALPHABET_TIMESTAMPS[currentLetter];
   const description = isTagalog
     ? DESCRIPTIONS_TL[currentLetter]
     : DESCRIPTIONS_EN[currentLetter];
 
   // --------------------------------------------------
-  // LOAD SAVED PROGRESS
+  // DATABASE SAVE QUEUE
   // --------------------------------------------------
 
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!user) {
-      setProgressLoading(false);
-      setProgressError(
-        isTagalog
-          ? "Kailangan mong mag-sign in upang ma-access ang iyong progreso."
-          : "You must be signed in to access your progress."
-      );
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadProgress = async () => {
-      setProgressLoading(true);
-      setProgressError("");
-
-      try {
-        const { data, error } = await supabase
-          .from("alphabet_progress")
-          .select(`
-            tutorial_current_index,
-            tutorial_is_quick_test,
-            tutorial_test_index,
-            tutorial_answers,
-            tutorial_completed_at
-          `)
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (error) throw error;
-        if (!isMounted) return;
-
-        if (data) {
-          const savedLetterIndex = Number(
-            data.tutorial_current_index ?? 0
-          );
-
-          const savedTestIndex = Number(
-            data.tutorial_test_index ?? 0
-          );
-
-          const safeLetterIndex = Math.min(
-            Math.max(savedLetterIndex, 0),
-            ALPHABET.length - 1
-          );
-
-          const safeTestIndex = Math.min(
-            Math.max(savedTestIndex, 0),
-            QUICK_TEST_QUESTIONS.length - 1
-          );
-
-          const savedAnswers = Array.isArray(data.tutorial_answers)
-            ? data.tutorial_answers
-            : [];
-
-          const restoredAnswers = QUICK_TEST_QUESTIONS.map((question, index) => {
-            const answer = savedAnswers[index];
-
-            return typeof answer === "string" &&
-              question.options.includes(answer)
-              ? answer
-              : null;
-          });
-
-          setCurrentIndex(safeLetterIndex);
-          setTestIndex(safeTestIndex);
-          setAnswers(restoredAnswers);
-
-          const restoredAnswer = restoredAnswers[safeTestIndex];
-
-          setSelectedAnswer(restoredAnswer);
-
-          setIsCorrect(
-            restoredAnswer === null
-              ? null
-              : restoredAnswer ===
-                  QUICK_TEST_QUESTIONS[safeTestIndex].answer
-          );
-
-          // Completed learners return to the tutorial for review.
-          // Unfinished learners resume their saved tutorial/test state.
-          if (data.tutorial_completed_at) {
-            setIsQuickTest(false);
-          } else {
-            setIsQuickTest(Boolean(data.tutorial_is_quick_test));
-          }
-        }
-      } catch (error) {
-        console.error(
-          "Unable to load alphabet tutorial progress:",
-          error
-        );
-
-        if (isMounted) {
-          setProgressError(
-            isTagalog
-              ? "Hindi ma-load ang iyong na-save na progreso. Pakisubukang i-refresh ang page."
-              : "Unable to load your saved progress. Please refresh the page and try again."
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setProgressLoading(false);
-        }
-      }
-    };
-
-    void loadProgress();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user, authLoading, isTagalog]);
-
-  // --------------------------------------------------
-  // SAVE PROGRESS
-  // --------------------------------------------------
-
-  const saveProgress = (
-    letterIndex: number,
-    questionIndex: number,
-    savedAnswers: (string | null)[],
-    quickTestMode: boolean,
-    completion?: {
-      score: number;
-      completedAt: string;
-    }
-  ): Promise<void> => {
-    if (!user) {
-      return Promise.reject(new Error("No authenticated user."));
-    }
-
-    const progressData = {
-      user_id: user.id,
-      tutorial_current_index: letterIndex,
-      tutorial_is_quick_test: quickTestMode,
-      tutorial_test_index: questionIndex,
-      tutorial_answers: savedAnswers,
-      updated_at: new Date().toISOString(),
-      ...(completion
-        ? {
-            tutorial_score: completion.score,
-            tutorial_total_questions: QUICK_TEST_QUESTIONS.length,
-            tutorial_completed_at: completion.completedAt,
-          }
-        : {}),
-    };
-
+  const queueProgressSave = (saveOperation: () => Promise<void>) => {
     pendingSaves.current += 1;
     setProgressSaving(true);
     setProgressError("");
 
-    const request = saveQueue.current.then(async () => {
-      const { error } = await supabase
-        .from("alphabet_progress")
-        .upsert(progressData, {
-          onConflict: "user_id",
-        });
+    const request = saveQueue.current.then(saveOperation);
 
-      if (error) throw error;
-    });
-
-    // Keep the queue alive after a failed request, but preserve
-    // the original request's rejection for the caller to handle.
     saveQueue.current = request.then(
       () => undefined,
       () => undefined
@@ -354,6 +215,405 @@ export default function AlphabetTutorial() {
           setProgressSaving(false);
         }
       });
+  };
+
+  // --------------------------------------------------
+  // SAVE STANDARD TUTORIAL PROGRESS
+  // Uses the new alphabet_progress table structure.
+  // --------------------------------------------------
+
+  const saveProgress = (
+    letterIndex: number,
+    completed = false,
+    score: number | null = null
+  ): Promise<void> => {
+    if (!user) {
+      return Promise.reject(new Error("No authenticated user."));
+    }
+
+    return queueProgressSave(async () => {
+      const now = new Date().toISOString();
+
+      const progressData = {
+        user_id: user.id,
+        tutorial_current_index: letterIndex,
+        tutorial_is_quick_test: false,
+        tutorial_test_index: 0,
+        tutorial_answers: [],
+        tutorial_score: score,
+        tutorial_total_questions: score === null ? null : QUICK_TEST_LENGTH,
+        tutorial_completed_at: completed ? now : null,
+        updated_at: now,
+      };
+
+      const { error } = await supabase
+        .from("alphabet_progress")
+        .upsert(progressData, {
+          onConflict: "user_id",
+        });
+
+      if (error) throw error;
+    });
+  };
+
+  // --------------------------------------------------
+  // SAVE QUICK TEST PROGRESS
+  // The assessment attempt stores the full attempt.
+  // This table stores the learner's current test position.
+  // --------------------------------------------------
+
+  const saveQuickTestProgress = (
+    letterIndex: number,
+    questionIndex: number,
+    savedAnswers: (string | null)[]
+  ): Promise<void> => {
+    if (!user) {
+      return Promise.reject(new Error("No authenticated user."));
+    }
+
+    return queueProgressSave(async () => {
+      const progressData = {
+        user_id: user.id,
+        tutorial_current_index: letterIndex,
+        tutorial_is_quick_test: true,
+        tutorial_test_index: questionIndex,
+        tutorial_answers: savedAnswers,
+        tutorial_score: null,
+        tutorial_total_questions: QUICK_TEST_LENGTH,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("alphabet_progress")
+        .upsert(progressData, {
+          onConflict: "user_id",
+        });
+
+      if (error) throw error;
+    });
+  };
+
+  // --------------------------------------------------
+  // LOAD PART 1 PROGRESS AND RESUMABLE CHECKPOINT
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      setProgressLoading(false);
+      setProgressError(
+        isTagalog
+          ? "Kailangan mong mag-sign in upang ma-access ang iyong progreso."
+          : "You must be signed in to access your progress."
+      );
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadProgress = async () => {
+      setProgressLoading(true);
+      setProgressError("");
+
+      try {
+        const { data: progress, error: progressErrorResult } = await supabase
+          .from("alphabet_progress")
+          .select(
+            "tutorial_current_index, tutorial_is_quick_test, tutorial_test_index, tutorial_answers, tutorial_score, tutorial_total_questions, tutorial_completed_at"
+          )
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (progressErrorResult) throw progressErrorResult;
+        if (!isMounted) return;
+
+        const savedIndex = Math.min(
+          Math.max(Number(progress?.tutorial_current_index ?? 0), 0),
+          ALPHABET.length - 1
+        );
+
+        setCurrentIndex(savedIndex);
+        setPartCompleted(Boolean(progress?.tutorial_completed_at));
+
+        const { data: activeAttempts, error: attemptError } = await supabase
+          .from("alphabet_assessment_attempts")
+          .select("id, checkpoint_number, questions, answers, created_at")
+          .eq("user_id", user.id)
+          .eq("assessment_type", "quick_test")
+          .eq("part_key", "part_1")
+          .eq("status", "in_progress")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (attemptError) throw attemptError;
+        if (!isMounted) return;
+
+        const activeAttempt = activeAttempts?.[0];
+
+        if (activeAttempt) {
+          const checkpoint =
+            Number(activeAttempt.checkpoint_number) === 1 ? 1 : 2;
+
+          const pool =
+            checkpoint === 1
+              ? ALPHABET.slice(0, CHECKPOINT_AFTER_INDEX + 1)
+              : ALPHABET.slice(CHECKPOINT_AFTER_INDEX + 1);
+
+          const storedQuestions = Array.isArray(activeAttempt.questions)
+            ? (activeAttempt.questions as QuickTestQuestion[])
+            : [];
+
+          const restoredQuestions =
+            storedQuestions.length === QUICK_TEST_LENGTH
+              ? storedQuestions
+              : createQuickTestQuestions(
+                  pool,
+                  `${user.id}-part1-checkpoint-${checkpoint}`
+                );
+
+          const storedAnswers = Array.isArray(activeAttempt.answers)
+            ? activeAttempt.answers
+            : Array.isArray(progress?.tutorial_answers)
+              ? progress.tutorial_answers
+              : [];
+
+          const restoredAnswers = Array.from(
+            { length: QUICK_TEST_LENGTH },
+            (_, index) =>
+              typeof storedAnswers[index] === "string"
+                ? (storedAnswers[index] as string)
+                : null
+          );
+
+          const firstUnanswered = restoredAnswers.findIndex(
+            (answer) => answer === null
+          );
+
+          const restoredIndex =
+            firstUnanswered === -1
+              ? QUICK_TEST_LENGTH - 1
+              : firstUnanswered;
+
+          const restoredAnswer = restoredAnswers[restoredIndex];
+
+          const checkpointLetterIndex =
+            checkpoint === 1
+              ? CHECKPOINT_AFTER_INDEX
+              : ALPHABET.length - 1;
+
+          setCurrentIndex(checkpointLetterIndex);
+          setQuickTestAttemptId(activeAttempt.id);
+          setQuickTestQuestions(restoredQuestions);
+          setAnswers(restoredAnswers);
+          setTestIndex(restoredIndex);
+          setSelectedAnswer(restoredAnswer);
+
+          setIsCorrect(
+            restoredAnswer === null
+              ? null
+              : restoredAnswer === restoredQuestions[restoredIndex].answer
+          );
+
+          setIsQuickTest(true);
+        } else {
+          setQuickTestAttemptId(null);
+          setQuickTestQuestions([]);
+          setAnswers(Array(QUICK_TEST_LENGTH).fill(null));
+          setTestIndex(0);
+          setSelectedAnswer(null);
+          setIsCorrect(null);
+          setIsQuickTest(false);
+
+          // If the progress row says a test is active but no matching
+          // assessment attempt exists, return the learner to tutorial mode.
+          if (progress?.tutorial_is_quick_test) {
+            const { error: resetError } = await supabase
+              .from("alphabet_progress")
+              .update({
+                tutorial_is_quick_test: false,
+                tutorial_test_index: 0,
+                tutorial_answers: [],
+                updated_at: new Date().toISOString(),
+              })
+              .eq("user_id", user.id);
+
+            if (resetError) throw resetError;
+          }
+        }
+      } catch (error) {
+        console.error("Unable to load Part 1 alphabet progress:", error);
+
+        if (isMounted) {
+          setProgressError(
+            isTagalog
+              ? "Hindi ma-load ang iyong na-save na progreso. Pakisubukang i-refresh ang page."
+              : "Unable to load your saved progress. Please refresh the page and try again."
+          );
+        }
+      } finally {
+        if (isMounted) setProgressLoading(false);
+      }
+    };
+
+    void loadProgress();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, authLoading, isTagalog]);
+
+  // --------------------------------------------------
+  // CREATE A SEPARATE DATABASE ATTEMPT FOR EACH RUN
+  // --------------------------------------------------
+
+  const createQuickTestAttempt = async () => {
+    if (!user) throw new Error("No authenticated user.");
+
+    const checkpoint =
+      currentIndex <= CHECKPOINT_AFTER_INDEX ? 1 : 2;
+
+    const pool =
+      checkpoint === 1
+        ? ALPHABET.slice(0, CHECKPOINT_AFTER_INDEX + 1)
+        : ALPHABET.slice(CHECKPOINT_AFTER_INDEX + 1);
+
+    const questions = createQuickTestQuestions(
+      pool,
+      `${user.id}-part1-checkpoint-${checkpoint}-${Date.now()}`
+    );
+
+    const initialAnswers = Array(QUICK_TEST_LENGTH).fill(null);
+
+    const { data, error } = await supabase
+      .from("alphabet_assessment_attempts")
+      .insert({
+        user_id: user.id,
+        assessment_type: "quick_test",
+        part_key: "part_1",
+        checkpoint_number: checkpoint,
+        questions,
+        answers: initialAnswers,
+        score: null,
+        total_questions: QUICK_TEST_LENGTH,
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    await saveQuickTestProgress(
+      currentIndex,
+      0,
+      initialAnswers
+    );
+
+    setQuickTestAttemptId(data.id);
+    setQuickTestQuestions(questions);
+    setAnswers(initialAnswers);
+    setTestIndex(0);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+
+    return questions;
+  };
+
+  // --------------------------------------------------
+  // SAVE ANSWERS TO THE ASSESSMENT ATTEMPT
+  // AND THE LEARNER'S PROGRESS ROW
+  // --------------------------------------------------
+
+  const persistAttemptAnswers = async (
+    updatedAnswers: (string | null)[],
+    questionIndex = testIndex
+  ) => {
+    if (!quickTestAttemptId || !user) {
+      throw new Error("No active quick-test attempt.");
+    }
+
+    const { error } = await supabase
+      .from("alphabet_assessment_attempts")
+      .update({
+        answers: updatedAnswers,
+      })
+      .eq("id", quickTestAttemptId)
+      .eq("user_id", user.id);
+
+    if (error) throw error;
+
+    await saveQuickTestProgress(
+      currentIndex,
+      questionIndex,
+      updatedAnswers
+    );
+  };
+
+  // --------------------------------------------------
+  // COMPLETE QUICK TEST ATTEMPT
+  // --------------------------------------------------
+
+  const completeQuickTestAttempt = async () => {
+    if (!quickTestAttemptId || !user) {
+      throw new Error("No active quick-test attempt.");
+    }
+
+    const score = QUICK_TEST_QUESTIONS.reduce(
+      (sum, question, index) =>
+        sum + (answers[index] === question.answer ? 1 : 0),
+      0
+    );
+
+    const completedAt = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("alphabet_assessment_attempts")
+      .update({
+        answers,
+        score,
+        total_questions: QUICK_TEST_LENGTH,
+        status: "completed",
+        completed_at: completedAt,
+      })
+      .eq("id", quickTestAttemptId)
+      .eq("user_id", user.id);
+
+    if (error) throw error;
+
+    if (currentIndex === CHECKPOINT_AFTER_INDEX) {
+      // First checkpoint completed: move to G and stay on the tutorial page.
+      await saveProgress(
+        CHECKPOINT_AFTER_INDEX + 1,
+        false,
+        score
+      );
+
+      setCurrentIndex(CHECKPOINT_AFTER_INDEX + 1);
+      setPartCompleted(false);
+    } else {
+      // Second checkpoint completed: Part 1 is finished.
+      await saveProgress(
+        ALPHABET.length - 1,
+        true,
+        score
+      );
+
+      setPartCompleted(true);
+    }
+
+    setQuickTestAttemptId(null);
+    setQuickTestQuestions([]);
+    setAnswers(Array(QUICK_TEST_LENGTH).fill(null));
+    setTestIndex(0);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setIsQuickTest(false);
+
+    // Only navigate away after the second checkpoint.
+    if (currentIndex !== CHECKPOINT_AFTER_INDEX) {
+      navigate("/alphabet");
+    }
   };
 
   // --------------------------------------------------
@@ -500,7 +760,6 @@ export default function AlphabetTutorial() {
     if (!video) return;
 
     const currentQ = QUICK_TEST_QUESTIONS[testIndex];
-
     video.currentTime = ALPHABET_TIMESTAMPS[currentQ.letter].start;
     video.play().catch(() => {});
   };
@@ -510,16 +769,18 @@ export default function AlphabetTutorial() {
   // --------------------------------------------------
 
   const handleLetterChange = async (index: number) => {
-    if (index < 0 || index >= ALPHABET.length) return;
+    if (index < 0 || index >= ALPHABET.length || progressSaving) return;
+
+    // Do not let learners skip the first checkpoint.
+    if (
+      currentIndex <= CHECKPOINT_AFTER_INDEX &&
+      index > CHECKPOINT_AFTER_INDEX
+    ) {
+      return;
+    }
 
     try {
-      await saveProgress(
-        index,
-        testIndex,
-        answers,
-        false
-      );
-
+      await saveProgress(index, partCompleted);
       setCurrentIndex(index);
     } catch {
       // Keep the current position if saving failed.
@@ -529,36 +790,38 @@ export default function AlphabetTutorial() {
   const handleNext = async () => {
     if (progressSaving) return;
 
-    if (!isLast) {
-      const nextIndex = currentIndex + 1;
+    const isCheckpointLetter =
+      currentIndex === CHECKPOINT_AFTER_INDEX || isLast;
 
+    if (isCheckpointLetter) {
       try {
-        await saveProgress(
-          nextIndex,
-          testIndex,
-          answers,
-          false
-        );
+        if (!quickTestAttemptId) {
+          await createQuickTestAttempt();
+        }
 
-        setCurrentIndex(nextIndex);
-      } catch {
-        // Do not advance if progress could not be saved.
+        // If an attempt already exists, retain its saved question index
+        // and answers instead of restarting it at question one.
+        setIsQuickTest(true);
+      } catch (error) {
+        console.error("Unable to start the quick test:", error);
+
+        setProgressError(
+          isTagalog
+            ? "Hindi masimulan ang quick test. Pakisubukang muli."
+            : "Unable to start the quick test. Please try again."
+        );
       }
 
       return;
     }
 
-    try {
-      await saveProgress(
-        currentIndex,
-        testIndex,
-        answers,
-        true
-      );
+    const nextIndex = currentIndex + 1;
 
-      setIsQuickTest(true);
+    try {
+      await saveProgress(nextIndex, partCompleted);
+      setCurrentIndex(nextIndex);
     } catch {
-      // Do not enter the test if saving failed.
+      // Do not advance if saving failed.
     }
   };
 
@@ -569,104 +832,87 @@ export default function AlphabetTutorial() {
   const handleAnswerSelect = async (option: string) => {
     if (selectedAnswer !== null || progressSaving) return;
 
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+    const currentQuestion = QUICK_TEST_QUESTIONS[testIndex];
 
-    if (!currentQ.options.includes(option)) return;
+    if (!currentQuestion.options.includes(option)) return;
 
     const updatedAnswers = [...answers];
     updatedAnswers[testIndex] = option;
 
     try {
-      await saveProgress(
-        currentIndex,
-        testIndex,
-        updatedAnswers,
-        true
-      );
+      await persistAttemptAnswers(updatedAnswers, testIndex);
 
       setAnswers(updatedAnswers);
       setSelectedAnswer(option);
-      setIsCorrect(option === currentQ.answer);
-    } catch {
-      // Do not accept an answer that could not be saved.
+      setIsCorrect(option === currentQuestion.answer);
+    } catch (error) {
+      console.error("Unable to save quick-test answer:", error);
+
+      setProgressError(
+        isTagalog
+          ? "Hindi na-save ang iyong sagot. Pakisubukang muli."
+          : "Your answer could not be saved. Please try again."
+      );
     }
   };
 
   const handleNextTestQuestion = async () => {
     if (selectedAnswer === null || progressSaving) return;
 
-    if (testIndex < QUICK_TEST_QUESTIONS.length - 1) {
-      const nextIndex = testIndex + 1;
-      const nextAnswer = answers[nextIndex] ?? null;
+    if (testIndex < QUICK_TEST_LENGTH - 1) {
+      const nextQuestionIndex = testIndex + 1;
 
       try {
-        await saveProgress(
+        await saveQuickTestProgress(
           currentIndex,
-          nextIndex,
-          answers,
-          true
+          nextQuestionIndex,
+          answers
         );
 
-        setTestIndex(nextIndex);
-        setSelectedAnswer(nextAnswer);
-
+        setTestIndex(nextQuestionIndex);
+        setSelectedAnswer(answers[nextQuestionIndex]);
         setIsCorrect(
-          nextAnswer === null
+          answers[nextQuestionIndex] === null
             ? null
-            : nextAnswer === QUICK_TEST_QUESTIONS[nextIndex].answer
+            : answers[nextQuestionIndex] ===
+              QUICK_TEST_QUESTIONS[nextQuestionIndex].answer
         );
-      } catch {
-        // Stay on the current question if saving failed.
+      } catch (error) {
+        console.error("Unable to save quick-test position:", error);
       }
 
       return;
     }
 
-    const score = answers.reduce((totalScore, answer, index) => {
-      return answer === QUICK_TEST_QUESTIONS[index].answer
-        ? totalScore + 1
-        : totalScore;
-    }, 0);
-
-    const completedAt = new Date().toISOString();
-
     try {
-      await saveProgress(
-        currentIndex,
-        testIndex,
-        answers,
-        true,
-        {
-          score,
-          completedAt,
-        }
-      );
+      await completeQuickTestAttempt();
+    } catch (error) {
+      console.error("Unable to complete quick-test attempt:", error);
 
-      navigate("/alphabetcomplete", {
-        state: {
-          score,
-          total: QUICK_TEST_QUESTIONS.length,
-        },
-      });
-    } catch {
-      // The learner stays on the final question so they can retry.
+      setProgressError(
+        isTagalog
+          ? "Hindi maitala ang resulta ng pagsusulit. Pakisubukang muli."
+          : "Unable to save the assessment result. Please try again."
+      );
     }
   };
 
   const handleQuickTestBack = async () => {
     if (progressSaving) return;
 
+    // Keep the attempt active so it can be resumed later.
     try {
-      await saveProgress(
+      await saveQuickTestProgress(
         currentIndex,
         testIndex,
-        answers,
-        false
+        answers
       );
 
       setIsQuickTest(false);
-    } catch {
-      // Keep the learner in the test if saving failed.
+      setSelectedAnswer(null);
+      setIsCorrect(null);
+    } catch (error) {
+      console.error("Unable to save quick-test progress:", error);
     }
   };
 
@@ -715,7 +961,9 @@ export default function AlphabetTutorial() {
                 {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
               </h1>
               <p className="text-sm font-medium text-slate-600 sm:text-base">
-                {isTagalog ? "Subukan ang iyong natutunan." : "Test what you've learned."}
+                {isTagalog
+                  ? `Checkpoint ${checkpointNumber}: mga titik ${checkpointNumber === 1 ? "A–F" : "G–M"}`
+                  : `Checkpoint ${checkpointNumber}: letters ${checkpointNumber === 1 ? "A–F" : "G–M"}`}
               </p>
             </div>
           </div>
@@ -743,15 +991,18 @@ export default function AlphabetTutorial() {
           <div className="mb-4">
             <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
               {isTagalog
-                ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_QUESTIONS.length}`
-                : `Question ${testIndex + 1} of ${QUICK_TEST_QUESTIONS.length}`}
+                ? `Tanong ${testIndex + TEST_START_INDEX + 1} ng ${QUICK_TEST_LENGTH}`
+                : `Question ${testIndex + TEST_START_INDEX + 1} of ${QUICK_TEST_LENGTH}`}
             </p>
 
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white/80" aria-hidden="true">
+            <div
+              className="h-3 w-full overflow-hidden rounded-full bg-white/80"
+              aria-hidden="true"
+            >
               <div
                 className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
                 style={{
-                  width: `${((testIndex + 1) / QUICK_TEST_QUESTIONS.length) * 100}%`,
+                  width: `${((testIndex + TEST_START_INDEX + 1) / QUICK_TEST_LENGTH) * 100}%`,
                 }}
               />
             </div>
@@ -826,7 +1077,9 @@ export default function AlphabetTutorial() {
 
           {selectedAnswer !== null && (
             <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
-              <p className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}>
+              <p
+                className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}
+              >
                 {isCorrect
                   ? isTagalog
                     ? "Magaling! Tama ang sagot mo! 🎉"
@@ -847,8 +1100,12 @@ export default function AlphabetTutorial() {
                     ? "Susunod na Tanong"
                     : "Next Question"
                   : isTagalog
-                    ? "Tapusin ang Pagsusulit"
-                    : "Finish Test"}
+                    ? checkpointNumber === 1
+                      ? "Magpatuloy sa G–M"
+                      : "Tapusin ang Part 1"
+                    : checkpointNumber === 1
+                      ? "Continue to G–M"
+                      : "Finish Part 1"}
 
                 <ArrowRight size={21} strokeWidth={3} />
               </button>
@@ -870,7 +1127,11 @@ export default function AlphabetTutorial() {
           <button
             type="button"
             onClick={() => navigate("/alphabet")}
-            aria-label={isTagalog ? "Bumalik sa menu ng alpabeto" : "Back to alphabet menu"}
+            aria-label={
+              isTagalog
+                ? "Bumalik sa menu ng alpabeto"
+                : "Back to alphabet menu"
+            }
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
           >
             <ArrowLeft size={22} strokeWidth={2.5} />
@@ -882,8 +1143,8 @@ export default function AlphabetTutorial() {
             </h1>
             <p className="text-sm font-medium text-slate-600 sm:text-base">
               {isTagalog
-                ? "Matutunan ang bawat titik gamit ang gabay na ito."
-                : "Learn each letter step by step."}
+                ? "Matutunan ang mga titik A–M gamit ang gabay na ito."
+                : "Learn letters A–M step by step."}
             </p>
           </div>
         </div>
@@ -932,7 +1193,6 @@ export default function AlphabetTutorial() {
           </div>
         </div>
 
-        {/* LETTER PICKER */}
         <div
           className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2 scrollbar-none"
           role="group"
@@ -951,7 +1211,9 @@ export default function AlphabetTutorial() {
                 onClick={() => handleLetterChange(position)}
                 disabled={progressSaving}
                 aria-current={isCurrent ? "step" : undefined}
-                aria-label={isTagalog ? `Titik ${letter}` : `Letter ${letter}`}
+                aria-label={
+                  isTagalog ? `Titik ${letter}` : `Letter ${letter}`
+                }
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 ${
                   isCurrent
                     ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
@@ -989,7 +1251,6 @@ export default function AlphabetTutorial() {
               <h2 className="mb-1 text-lg font-black text-[#454545] sm:text-xl">
                 {isTagalog ? "Paglalarawan:" : "Descriptions:"}
               </h2>
-
               <p className="text-base leading-relaxed text-[#555555] sm:text-lg">
                 {description}
               </p>
@@ -1027,15 +1288,13 @@ export default function AlphabetTutorial() {
             disabled={progressSaving}
             className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 text-lg font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
           >
-            {isLast
-              ? isTagalog
-                ? "Quick Test"
-                : "Quick Test"
+            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast
+              ? "Quick Test"
               : isTagalog
                 ? "Susunod"
                 : "Next"}
 
-            {isLast ? (
+            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast ? (
               <Check size={21} strokeWidth={3} aria-hidden="true" />
             ) : (
               <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />

@@ -20,6 +20,7 @@ import CategoriesPage from "./pages/logged-in/categories/CategoriesPage";
 
 import AlphabetPage from "./pages/logged-in/alphabet/alphabet";
 import AlphabetTutorial from "./pages/logged-in/alphabet/alphabettutorial";
+import AlphabetTutorial2 from "./pages/logged-in/alphabet/alphabettutorial2";
 import AlphabetComplete from "./pages/logged-in/alphabet/alphabetcomplete";
 import AlphabetQuiz from "./pages/logged-in/alphabet/alphabetquiz";
 
@@ -99,6 +100,11 @@ function App() {
                                 element={<AlphabetTutorial />}
                             />
 
+                            <Route
+                                path="/alphabettutorial2"
+                                element={<AlphabetTutorial2 />}
+                            />
+                            
                             <Route
                                 path="/alphabetcomplete"
                                 element={<AlphabetComplete />}
