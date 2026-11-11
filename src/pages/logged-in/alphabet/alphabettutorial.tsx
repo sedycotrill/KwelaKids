@@ -6,6 +6,8 @@ import { useLanguage } from "../../../context/LanguageContext";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "../../../lib/supabase";
 
+const PART_KEY = "part_1";
+
 const ALPHABET = "ABCDEFGHIJKLM".split("");
 
 const ALPHABET_TIMESTAMPS: Record<string, { start: number; end: number }> = {
@@ -56,9 +58,6 @@ const DESCRIPTIONS_TL: Record<string, string> = {
   M: "Tiklupin ang apat na daliri patungo sa palad para bumuo ng saradong kamao. Ilagay ang hinlalaki sa ilalim ng mga daliri.",
 };
 
-// Each checkpoint gets three distinct questions.
-// The generated questions are saved in the assessment attempt.
-
 const TEST_START_INDEX = 0;
 const CHECKPOINT_AFTER_INDEX = 5;
 const QUICK_TEST_LENGTH = 3;
@@ -103,10 +102,11 @@ const createQuickTestQuestions = (
   seed: string
 ): QuickTestQuestion[] => {
   const random = seededRandom(seed);
-  const questionLetters = shuffleWithSeed(letterPool, random).slice(
-    0,
-    QUICK_TEST_LENGTH
-  );
+
+  const questionLetters = shuffleWithSeed(
+    letterPool,
+    random
+  ).slice(0, QUICK_TEST_LENGTH);
 
   return questionLetters.map((letter) => {
     const distractors = shuffleWithSeed(
@@ -135,15 +135,19 @@ export default function AlphabetTutorialPart1() {
   const [testIndex, setTestIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
   const [answers, setAnswers] = useState<(string | null)[]>(
     Array(QUICK_TEST_LENGTH).fill(null)
   );
+
   const [quickTestQuestions, setQuickTestQuestions] = useState<
     QuickTestQuestion[]
   >([]);
+
   const [quickTestAttemptId, setQuickTestAttemptId] = useState<string | null>(
     null
   );
+
   const [partCompleted, setPartCompleted] = useState(false);
 
   const [progressLoading, setProgressLoading] = useState(true);
@@ -172,10 +176,11 @@ export default function AlphabetTutorialPart1() {
       ? quickTestQuestions
       : createQuickTestQuestions(
           checkpointLetters,
-          `${user?.id ?? "guest"}-part1-checkpoint-${checkpointNumber}`
+          `${user?.id ?? "guest"}-${PART_KEY}-checkpoint-${checkpointNumber}`
         );
 
   const timestamp = ALPHABET_TIMESTAMPS[currentLetter];
+
   const description = isTagalog
     ? DESCRIPTIONS_TL[currentLetter]
     : DESCRIPTIONS_EN[currentLetter];
@@ -219,7 +224,7 @@ export default function AlphabetTutorialPart1() {
 
   // --------------------------------------------------
   // SAVE STANDARD TUTORIAL PROGRESS
-  // Uses the new alphabet_progress table structure.
+  // Each part has its own progress row.
   // --------------------------------------------------
 
   const saveProgress = (
@@ -236,6 +241,7 @@ export default function AlphabetTutorialPart1() {
 
       const progressData = {
         user_id: user.id,
+        part_key: PART_KEY,
         tutorial_current_index: letterIndex,
         tutorial_is_quick_test: false,
         tutorial_test_index: 0,
@@ -249,7 +255,7 @@ export default function AlphabetTutorialPart1() {
       const { error } = await supabase
         .from("alphabet_progress")
         .upsert(progressData, {
-          onConflict: "user_id",
+          onConflict: "user_id,part_key",
         });
 
       if (error) throw error;
@@ -258,8 +264,6 @@ export default function AlphabetTutorialPart1() {
 
   // --------------------------------------------------
   // SAVE QUICK TEST PROGRESS
-  // The assessment attempt stores the full attempt.
-  // This table stores the learner's current test position.
   // --------------------------------------------------
 
   const saveQuickTestProgress = (
@@ -274,6 +278,7 @@ export default function AlphabetTutorialPart1() {
     return queueProgressSave(async () => {
       const progressData = {
         user_id: user.id,
+        part_key: PART_KEY,
         tutorial_current_index: letterIndex,
         tutorial_is_quick_test: true,
         tutorial_test_index: questionIndex,
@@ -286,7 +291,7 @@ export default function AlphabetTutorialPart1() {
       const { error } = await supabase
         .from("alphabet_progress")
         .upsert(progressData, {
-          onConflict: "user_id",
+          onConflict: "user_id,part_key",
         });
 
       if (error) throw error;
@@ -323,6 +328,7 @@ export default function AlphabetTutorialPart1() {
             "tutorial_current_index, tutorial_is_quick_test, tutorial_test_index, tutorial_answers, tutorial_score, tutorial_total_questions, tutorial_completed_at"
           )
           .eq("user_id", user.id)
+          .eq("part_key", PART_KEY)
           .maybeSingle();
 
         if (progressErrorResult) throw progressErrorResult;
@@ -341,7 +347,7 @@ export default function AlphabetTutorialPart1() {
           .select("id, checkpoint_number, questions, answers, created_at")
           .eq("user_id", user.id)
           .eq("assessment_type", "quick_test")
-          .eq("part_key", "part_1")
+          .eq("part_key", PART_KEY)
           .eq("status", "in_progress")
           .order("created_at", { ascending: false })
           .limit(1);
@@ -369,7 +375,7 @@ export default function AlphabetTutorialPart1() {
               ? storedQuestions
               : createQuickTestQuestions(
                   pool,
-                  `${user.id}-part1-checkpoint-${checkpoint}`
+                  `${user.id}-${PART_KEY}-checkpoint-${checkpoint}`
                 );
 
           const storedAnswers = Array.isArray(activeAttempt.answers)
@@ -425,8 +431,7 @@ export default function AlphabetTutorialPart1() {
           setIsCorrect(null);
           setIsQuickTest(false);
 
-          // If the progress row says a test is active but no matching
-          // assessment attempt exists, return the learner to tutorial mode.
+          // Recover tutorial mode if a stale test flag remains.
           if (progress?.tutorial_is_quick_test) {
             const { error: resetError } = await supabase
               .from("alphabet_progress")
@@ -436,7 +441,8 @@ export default function AlphabetTutorialPart1() {
                 tutorial_answers: [],
                 updated_at: new Date().toISOString(),
               })
-              .eq("user_id", user.id);
+              .eq("user_id", user.id)
+              .eq("part_key", PART_KEY);
 
             if (resetError) throw resetError;
           }
@@ -480,7 +486,7 @@ export default function AlphabetTutorialPart1() {
 
     const questions = createQuickTestQuestions(
       pool,
-      `${user.id}-part1-checkpoint-${checkpoint}-${Date.now()}`
+      `${user.id}-${PART_KEY}-checkpoint-${checkpoint}-${Date.now()}`
     );
 
     const initialAnswers = Array(QUICK_TEST_LENGTH).fill(null);
@@ -490,7 +496,7 @@ export default function AlphabetTutorialPart1() {
       .insert({
         user_id: user.id,
         assessment_type: "quick_test",
-        part_key: "part_1",
+        part_key: PART_KEY,
         checkpoint_number: checkpoint,
         questions,
         answers: initialAnswers,
@@ -539,7 +545,8 @@ export default function AlphabetTutorialPart1() {
         answers: updatedAnswers,
       })
       .eq("id", quickTestAttemptId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("part_key", PART_KEY);
 
     if (error) throw error;
 
@@ -577,7 +584,8 @@ export default function AlphabetTutorialPart1() {
         completed_at: completedAt,
       })
       .eq("id", quickTestAttemptId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("part_key", PART_KEY);
 
     if (error) throw error;
 
@@ -799,8 +807,7 @@ export default function AlphabetTutorialPart1() {
           await createQuickTestAttempt();
         }
 
-        // If an attempt already exists, retain its saved question index
-        // and answers instead of restarting it at question one.
+        // Existing attempts retain their saved questions and answers.
         setIsQuickTest(true);
       } catch (error) {
         console.error("Unable to start the quick test:", error);

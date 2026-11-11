@@ -1,18 +1,30 @@
+
 import { useState, useRef, useEffect } from "react";
-
 import { useNavigate } from "react-router-dom";
-
-import { ArrowLeft, ArrowRight, Check, RotateCcw, Award } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  RotateCcw,
+  Award,
+} from "lucide-react";
 
 import { useLanguage } from "../../../context/LanguageContext";
-
 import { useAuth } from "../../../context/AuthContext";
-
 import { supabase } from "../../../lib/supabase";
 
 const ALPHABET = "NOPQRSTUVWXYZ".split("");
+const PART_KEY = "part_2";
 
-const ALPHABET_TIMESTAMPS: Record<string, { start: number; end: number }> = {
+const CHECKPOINTS = {
+  1: { start: 0, end: 5, nextIndex: 6 },
+  2: { start: 6, end: 12, nextIndex: 12 },
+} as const;
+
+const ALPHABET_TIMESTAMPS: Record<
+  string,
+  { start: number; end: number }
+> = {
   N: { start: 34, end: 36 },
   O: { start: 37, end: 39 },
   P: { start: 39, end: 41 },
@@ -60,1572 +72,1238 @@ const DESCRIPTIONS_TL: Record<string, string> = {
   Z: "Iunat ang hintuturo habang nakatiklop ang iba. Iguhit ang titik Z sa hangin gamit ang iyong hintuturo.",
 };
 
-// Mga tanong sa Quick Test na may kasamang tamang timestamp para sa video
+type CheckpointNumber = 1 | 2;
 
-const START_INDEX = 13;
-const TEST_START_INDEX = 1;
+type QuickTestQuestion = {
+  questionEn: string;
+  questionTl: string;
+  letter: string;
+  answer: string;
+  options: string[];
+};
 
-const QUICK_TEST_QUESTIONS = [
-{
+type AssessmentAttempt = {
+  id: string;
+  questions: QuickTestQuestion[];
+  answers: (string | null)[];
+  checkpoint_number: number;
+};
 
-    questionEn: "Which letter matches this FSL sign?",
+const shuffle = <T,>(items: T[]): T[] => {
+  const result = [...items];
 
-    questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
-
-    letter: "U",
-
-    answer: "U",
-
-    options: ["U", "V", "W", "L"]
-
-  },
-{
-
-    questionEn: "Which letter matches this FSL sign?",
-
-    questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
-
-    letter: "D",
-
-    answer: "D",
-
-    options: ["B", "D", "I", "L"]
-
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
   }
-];
+
+  return result;
+};
+
+const createQuickTestQuestions = (
+  checkpointNumber: CheckpointNumber
+): QuickTestQuestion[] => {
+  const checkpoint = CHECKPOINTS[checkpointNumber];
+
+  const questionLetters = shuffle(
+    ALPHABET.slice(checkpoint.start, checkpoint.end + 1)
+  ).slice(0, 3);
+
+  return questionLetters.map((letter) => {
+    const distractors = shuffle(
+      ALPHABET.filter((candidate) => candidate !== letter)
+    ).slice(0, 3);
+
+    return {
+      questionEn: "Which letter matches this FSL sign?",
+      questionTl: "Anong titik ang ipinapakita sa senyas na ito?",
+      letter,
+      answer: letter,
+      options: shuffle([letter, ...distractors]),
+    };
+  });
+};
 
 export default function AlphabetTutorialPart2() {
-
   const navigate = useNavigate();
-
   const { language } = useLanguage();
-
   const { user, loading: authLoading } = useAuth();
 
   const isTagalog = language === "tl";
 
   const [currentIndex, setCurrentIndex] = useState(0);
-
   const [isQuickTest, setIsQuickTest] = useState(false);
-
   const [testIndex, setTestIndex] = useState(0);
+  const [questions, setQuestions] = useState<QuickTestQuestion[]>([]);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-
-  const [answers, setAnswers] = useState<(string | null)[]>(() =>
-
-    Array(3).fill(null)
-
-  );
+  const [answers, setAnswers] = useState<(string | null)[]>([
+    null,
+    null,
+    null,
+  ]);
 
   const [progressLoading, setProgressLoading] = useState(true);
-
   const [progressSaving, setProgressSaving] = useState(false);
-
   const [progressError, setProgressError] = useState("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
-
   const testVideoRef = useRef<HTMLVideoElement>(null);
-
   const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Serialize saves so older requests cannot overwrite newer progress.
-
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
-
   const pendingSaves = useRef(0);
 
   const total = ALPHABET.length;
-
   const currentLetter = ALPHABET[currentIndex];
-
   const isLast = currentIndex === total - 1;
-
   const timestamp = ALPHABET_TIMESTAMPS[currentLetter];
 
   const description = isTagalog
-
     ? DESCRIPTIONS_TL[currentLetter]
-
     : DESCRIPTIONS_EN[currentLetter];
 
+  const getCheckpointNumber = (
+    index: number
+  ): CheckpointNumber => (index <= 5 ? 1 : 2);
+
+  const getCheckpointLabel = (checkpoint: CheckpointNumber) =>
+    `Checkpoint ${checkpoint}`;
+
+  // --------------------------------------------------
+  // SAVE PART 2 PROGRESS
   // --------------------------------------------------
 
-  // LOAD SAVED PROGRESS
+  const saveProgress = (
+    letterIndex: number,
+    questionIndex: number,
+    savedAnswers: (string | null)[],
+    quickTestMode: boolean,
+    completion?: {
+      score: number;
+      completedAt: string;
+    }
+  ): Promise<void> => {
+    if (!user) {
+      return Promise.reject(new Error("No authenticated user."));
+    }
 
+    const isFinalCheckpointCompletion =
+      completion !== undefined &&
+      getCheckpointNumber(letterIndex) === 2;
+
+    const progressData = {
+      user_id: user.id,
+      part_key: PART_KEY,
+      tutorial_current_index: letterIndex,
+      tutorial_is_quick_test: quickTestMode,
+      tutorial_test_index: questionIndex,
+      tutorial_answers: savedAnswers,
+      tutorial_score: completion?.score ?? null,
+      tutorial_total_questions: completion ? 3 : null,
+      tutorial_completed_at: completion?.completedAt ?? null,
+      updated_at: new Date().toISOString(),
+
+      // Only mark Part 2 complete after Checkpoint 2.
+      ...(isFinalCheckpointCompletion
+        ? { is_completed: true }
+        : {}),
+    };
+
+    pendingSaves.current += 1;
+    setProgressSaving(true);
+    setProgressError("");
+
+    const request = saveQueue.current.then(async () => {
+      const { error } = await supabase
+        .from("alphabet_progress")
+        .upsert(progressData, {
+          onConflict: "user_id,part_key",
+        });
+
+      if (error) throw error;
+    });
+
+    saveQueue.current = request.then(
+      () => undefined,
+      () => undefined
+    );
+
+    return request
+      .catch((error) => {
+        console.error("Unable to save Part 2 progress:", error);
+
+        setProgressError(
+          isTagalog
+            ? "Hindi na-save ang iyong progreso. Pakisuri ang iyong internet connection at subukan muli."
+            : "Your progress could not be saved. Please check your connection and try again."
+        );
+
+        throw error;
+      })
+      .finally(() => {
+        pendingSaves.current -= 1;
+
+        if (pendingSaves.current === 0) {
+          setProgressSaving(false);
+        }
+      });
+  };
+
+  // --------------------------------------------------
+  // CREATE A QUICK TEST ATTEMPT
+  // --------------------------------------------------
+
+  const startQuickTest = async (
+    checkpointNumber: CheckpointNumber
+  ) => {
+    if (!user) throw new Error("No authenticated user.");
+
+    const generatedQuestions =
+      createQuickTestQuestions(checkpointNumber);
+
+    const initialAnswers: (string | null)[] = [
+      null,
+      null,
+      null,
+    ];
+
+    const startedAt = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from("alphabet_assessment_attempts")
+      .insert({
+        user_id: user.id,
+        assessment_type: "quick_test",
+        part_key: PART_KEY,
+        checkpoint_number: checkpointNumber,
+        questions: generatedQuestions,
+        answers: initialAnswers,
+        score: 0,
+        total_questions: 3,
+        status: "in_progress",
+        started_at: startedAt,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    setQuestions(generatedQuestions);
+    setAnswers(initialAnswers);
+    setTestIndex(0);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setAttemptId(data.id);
+    setIsQuickTest(true);
+
+    await saveProgress(
+      currentIndex,
+      0,
+      initialAnswers,
+      true
+    );
+  };
+
+  // --------------------------------------------------
+  // LOAD SAVED PROGRESS AND ACTIVE ATTEMPT
   // --------------------------------------------------
 
   useEffect(() => {
-
     if (authLoading) return;
 
     if (!user) {
-
       setProgressLoading(false);
-
       setProgressError(
-
         isTagalog
-
           ? "Kailangan mong mag-sign in upang ma-access ang iyong progreso."
-
           : "You must be signed in to access your progress."
-
       );
-
       return;
-
     }
 
     let isMounted = true;
 
     const loadProgress = async () => {
-
       setProgressLoading(true);
-
       setProgressError("");
 
       try {
-
         const { data, error } = await supabase
-
           .from("alphabet_progress")
-
           .select(`
-
             tutorial_current_index,
-
             tutorial_is_quick_test,
-
             tutorial_test_index,
-
             tutorial_answers,
-
             tutorial_completed_at
-
           `)
-
           .eq("user_id", user.id)
-
+          .eq("part_key", PART_KEY)
           .maybeSingle();
 
         if (error) throw error;
-
         if (!isMounted) return;
 
-        if (data) {
+        if (!data) return;
 
-          const savedLetterIndex = Number(
+        const savedLetterIndex = Number(
+          data.tutorial_current_index ?? 0
+        );
 
-            data.tutorial_current_index ?? 0
+        const safeLetterIndex = Math.min(
+          Math.max(savedLetterIndex, 0),
+          ALPHABET.length - 1
+        );
 
-          );
+        setCurrentIndex(safeLetterIndex);
 
-          const savedTestIndex = Number(
+        const savedAnswers = Array.isArray(data.tutorial_answers)
+          ? data.tutorial_answers
+          : [];
 
-            data.tutorial_test_index ?? 0
+        const restoredAnswers = Array.from(
+          { length: 3 },
+          (_, index) =>
+            typeof savedAnswers[index] === "string"
+              ? savedAnswers[index]
+              : null
+        );
 
-          );
+        setAnswers(restoredAnswers);
 
-          const safeLetterIndex = Math.min(Math.max(savedLetterIndex - START_INDEX, 0), ALPHABET.length - 1);
-
-          const safeTestIndex = Math.min(Math.max(savedTestIndex - TEST_START_INDEX, 0), QUICK_TEST_QUESTIONS.length - 1);
-
-          const savedAnswers = Array.isArray(data.tutorial_answers)
-
-            ? data.tutorial_answers
-
-            : [];
-
-          const restoredAnswers = Array.from({ length: 3 }, (_, index) => {
-            const answer = savedAnswers[index];
-            return typeof answer === "string" ? answer : null;
-          });
-
-          setCurrentIndex(safeLetterIndex);
-
-          setTestIndex(safeTestIndex);
-
-          setAnswers(restoredAnswers);
-
-          const restoredAnswer = restoredAnswers[safeTestIndex + TEST_START_INDEX];
-
-          setSelectedAnswer(restoredAnswer);
-
-          setIsCorrect(
-
-            restoredAnswer === null
-
-              ? null
-
-              : restoredAnswer ===
-
-                  QUICK_TEST_QUESTIONS[safeTestIndex].answer
-
-          );
-
-          // Completed learners return to the tutorial for review.
-
-          // Unfinished learners resume their saved tutorial/test state.
-
-          if (data.tutorial_completed_at) {
-
-            setIsQuickTest(false);
-
-          } else {
-
-            setIsQuickTest(Boolean(data.tutorial_is_quick_test));
-
-          }
-
+        if (data.tutorial_completed_at) {
+          setIsQuickTest(false);
+          return;
         }
 
+        if (data.tutorial_is_quick_test) {
+          const checkpointNumber = getCheckpointNumber(
+            safeLetterIndex
+          );
+
+          const { data: attempt, error: attemptError } =
+            await supabase
+              .from("alphabet_assessment_attempts")
+              .select(`
+                id,
+                questions,
+                answers,
+                checkpoint_number
+              `)
+              .eq("user_id", user.id)
+              .eq("part_key", PART_KEY)
+              .eq("assessment_type", "quick_test")
+              .eq("checkpoint_number", checkpointNumber)
+              .eq("status", "in_progress")
+              .order("started_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+          if (attemptError) throw attemptError;
+          if (!isMounted) return;
+
+          if (attempt) {
+            const restoredQuestions = Array.isArray(
+              attempt.questions
+            )
+              ? (attempt.questions as QuickTestQuestion[])
+              : [];
+
+            const attemptAnswers = Array.isArray(attempt.answers)
+              ? attempt.answers
+              : [];
+
+            if (restoredQuestions.length === 3) {
+              // The current question index is stored in alphabet_progress,
+              // not alphabet_assessment_attempts.
+              const safeTestIndex = Math.min(
+                Math.max(Number(data.tutorial_test_index ?? 0), 0),
+                2
+              );
+
+              const restoredAttemptAnswers = Array.from(
+                { length: 3 },
+                (_, index) =>
+                  typeof attemptAnswers[index] === "string"
+                    ? attemptAnswers[index]
+                    : null
+              );
+
+              setQuestions(restoredQuestions);
+              setAnswers(restoredAttemptAnswers);
+              setTestIndex(safeTestIndex);
+              setAttemptId(attempt.id);
+
+              const restoredAnswer =
+                restoredAttemptAnswers[safeTestIndex];
+
+              setSelectedAnswer(restoredAnswer);
+              setIsCorrect(
+                restoredAnswer === null
+                  ? null
+                  : restoredAnswer ===
+                    restoredQuestions[safeTestIndex].answer
+              );
+
+              setIsQuickTest(true);
+            }
+          }
+        }
       } catch (error) {
-
         console.error(
-
-          "Unable to load alphabet tutorial progress:",
-
+          "Unable to load Part 2 tutorial progress:",
           error
-
         );
 
         if (isMounted) {
-
           setProgressError(
-
             isTagalog
-
               ? "Hindi ma-load ang iyong na-save na progreso. Pakisubukang i-refresh ang page."
-
               : "Unable to load your saved progress. Please refresh the page and try again."
-
           );
-
         }
-
       } finally {
-
-        if (isMounted) {
-
-          setProgressLoading(false);
-
-        }
-
+        if (isMounted) setProgressLoading(false);
       }
-
     };
 
     void loadProgress();
 
     return () => {
-
       isMounted = false;
-
     };
-
   }, [user, authLoading, isTagalog]);
 
   // --------------------------------------------------
-
-  // SAVE PROGRESS
-
-  // --------------------------------------------------
-
-  const saveProgress = (
-
-    letterIndex: number,
-
-    questionIndex: number,
-
-    savedAnswers: (string | null)[],
-
-    quickTestMode: boolean,
-
-    completion?: {
-
-      score: number;
-
-      completedAt: string;
-
-    }
-
-  ): Promise<void> => {
-
-    if (!user) {
-
-      return Promise.reject(new Error("No authenticated user."));
-
-    }
-
-    const progressData = {
-
-      user_id: user.id,
-
-      tutorial_current_index: letterIndex + START_INDEX,
-
-      tutorial_is_quick_test: quickTestMode,
-
-      tutorial_test_index: questionIndex + TEST_START_INDEX,
-
-      tutorial_answers: savedAnswers,
-
-      updated_at: new Date().toISOString(),
-
-      ...(completion
-
-        ? {
-
-            tutorial_score: completion.score,
-
-            tutorial_total_questions: 3,
-
-            tutorial_completed_at: completion.completedAt,
-
-          }
-
-        : {}),
-
-    };
-
-    pendingSaves.current += 1;
-
-    setProgressSaving(true);
-
-    setProgressError("");
-
-    const request = saveQueue.current.then(async () => {
-
-      const { error } = await supabase
-
-        .from("alphabet_progress")
-
-        .upsert(progressData, {
-
-          onConflict: "user_id",
-
-        });
-
-      if (error) throw error;
-
-    });
-
-    // Keep the queue alive after a failed request, but preserve
-
-    // the original request's rejection for the caller to handle.
-
-    saveQueue.current = request.then(
-
-      () => undefined,
-
-      () => undefined
-
-    );
-
-    return request
-
-      .catch((error) => {
-
-        console.error("Unable to save alphabet progress:", error);
-
-        setProgressError(
-
-          isTagalog
-
-            ? "Hindi na-save ang iyong progreso. Pakisuri ang iyong internet connection at subukan muli."
-
-            : "Your progress could not be saved. Please check your connection and try again."
-
-        );
-
-        throw error;
-
-      })
-
-      .finally(() => {
-
-        pendingSaves.current -= 1;
-
-        if (pendingSaves.current === 0) {
-
-          setProgressSaving(false);
-
-        }
-
-      });
-
-  };
-
-  // --------------------------------------------------
-
   // VIDEO SEGMENT EFFECTS
-
   // --------------------------------------------------
 
   useEffect(() => {
-
     if (isQuickTest) return;
 
     const video = videoRef.current;
-
     if (!video) return;
 
     const setVideoSegment = () => {
-
       video.pause();
-
       video.currentTime = timestamp.start;
-
     };
 
     if (video.readyState >= 1) {
-
       setVideoSegment();
-
     } else {
-
       video.addEventListener("loadedmetadata", setVideoSegment, {
-
         once: true,
-
       });
-
     }
 
     return () => {
-
       video.removeEventListener("loadedmetadata", setVideoSegment);
-
     };
-
   }, [currentLetter, timestamp.start, timestamp.end, isQuickTest]);
 
   useEffect(() => {
-
-    if (!isQuickTest) return;
+    if (!isQuickTest || questions.length === 0) return;
 
     const video = testVideoRef.current;
-
     if (!video) return;
 
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
-
-    const qTimestamp = ALPHABET_TIMESTAMPS[currentQ.letter];
+    const currentQuestion = questions[testIndex];
+    const questionTimestamp =
+      ALPHABET_TIMESTAMPS[currentQuestion.letter];
 
     const setTestVideoSegment = () => {
-
       video.pause();
-
-      video.currentTime = qTimestamp.start;
-
+      video.currentTime = questionTimestamp.start;
     };
 
     if (video.readyState >= 1) {
-
       setTestVideoSegment();
-
     } else {
-
       video.addEventListener("loadedmetadata", setTestVideoSegment, {
-
         once: true,
-
       });
-
     }
 
     return () => {
-
-      video.removeEventListener("loadedmetadata", setTestVideoSegment);
-
+      video.removeEventListener(
+        "loadedmetadata",
+        setTestVideoSegment
+      );
     };
-
-  }, [isQuickTest, testIndex]);
+  }, [isQuickTest, testIndex, questions]);
 
   // --------------------------------------------------
-
   // LETTER PICKER AUTO-SCROLL
-
   // --------------------------------------------------
 
   useEffect(() => {
-
     if (isQuickTest) return;
 
     const reduceMotion = window.matchMedia(
-
       "(prefers-reduced-motion: reduce)"
-
     ).matches;
 
     chipRefs.current[currentIndex]?.scrollIntoView({
-
       behavior: reduceMotion ? "auto" : "smooth",
-
       inline: "nearest",
-
       block: "nearest",
-
     });
-
   }, [currentIndex, isQuickTest]);
 
   // --------------------------------------------------
-
   // VIDEO CONTROLS
-
   // --------------------------------------------------
 
   const handleVideoTimeUpdate = () => {
-
     const video = videoRef.current;
-
     if (!video) return;
 
     if (
-
       timestamp.end > timestamp.start &&
-
       video.currentTime >= timestamp.end
-
     ) {
-
       video.pause();
-
     }
-
   };
 
   const handleTestVideoTimeUpdate = () => {
-
     const video = testVideoRef.current;
+    if (!video || questions.length === 0) return;
 
-    if (!video) return;
-
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
-
-    const qTimestamp = ALPHABET_TIMESTAMPS[currentQ.letter];
+    const questionTimestamp =
+      ALPHABET_TIMESTAMPS[questions[testIndex].letter];
 
     if (
-
-      qTimestamp.end > qTimestamp.start &&
-
-      video.currentTime >= qTimestamp.end
-
+      questionTimestamp.end > questionTimestamp.start &&
+      video.currentTime >= questionTimestamp.end
     ) {
-
       video.pause();
-
     }
-
   };
 
   const handleVideoPlay = () => {
-
     const video = videoRef.current;
-
     if (!video) return;
 
     if (
-
       video.currentTime >= timestamp.end - 0.1 ||
-
       video.currentTime < timestamp.start
-
     ) {
-
       video.currentTime = timestamp.start;
-
     }
-
   };
 
   const handleTestVideoPlay = () => {
-
     const video = testVideoRef.current;
+    if (!video || questions.length === 0) return;
 
-    if (!video) return;
-
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
-
-    const qTimestamp = ALPHABET_TIMESTAMPS[currentQ.letter];
+    const questionTimestamp =
+      ALPHABET_TIMESTAMPS[questions[testIndex].letter];
 
     if (
-
-      video.currentTime >= qTimestamp.end - 0.1 ||
-
-      video.currentTime < qTimestamp.start
-
+      video.currentTime >= questionTimestamp.end - 0.1 ||
+      video.currentTime < questionTimestamp.start
     ) {
-
-      video.currentTime = qTimestamp.start;
-
+      video.currentTime = questionTimestamp.start;
     }
-
   };
 
   const handleReplay = () => {
-
     const video = videoRef.current;
-
     if (!video) return;
 
     video.currentTime = timestamp.start;
-
     video.play().catch(() => {});
-
   };
 
   const handleTestReplay = () => {
-
     const video = testVideoRef.current;
+    if (!video || questions.length === 0) return;
 
-    if (!video) return;
-
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
-
-    video.currentTime = ALPHABET_TIMESTAMPS[currentQ.letter].start;
+    video.currentTime =
+      ALPHABET_TIMESTAMPS[questions[testIndex].letter].start;
 
     video.play().catch(() => {});
-
   };
 
   // --------------------------------------------------
-
   // TUTORIAL NAVIGATION
-
   // --------------------------------------------------
 
   const handleLetterChange = async (index: number) => {
-
     if (index < 0 || index >= ALPHABET.length) return;
 
     try {
-
       await saveProgress(
-
         index,
-
         testIndex,
-
         answers,
-
         false
-
       );
 
       setCurrentIndex(index);
-
     } catch {
-
       // Keep the current position if saving failed.
-
     }
-
   };
 
   const handleNext = async () => {
-
     if (progressSaving) return;
 
-    if (!isLast) {
+    const checkpointOneEnd = CHECKPOINTS[1].end;
+    const checkpointTwoEnd = CHECKPOINTS[2].end;
 
-      const nextIndex = currentIndex + 1;
-
+    // The learner has reached the end of the first checkpoint.
+    if (currentIndex === checkpointOneEnd) {
       try {
-
-        await saveProgress(
-
-          nextIndex,
-
-          testIndex,
-
-          answers,
-
-          false
-
+        await startQuickTest(1);
+      } catch (error) {
+        console.error("Unable to start Checkpoint 1:", error);
+        setProgressError(
+          isTagalog
+            ? "Hindi masimulan ang pagsusulit. Pakisubukang muli."
+            : "Unable to start the Quick Test. Please try again."
         );
-
-        setCurrentIndex(nextIndex);
-
-      } catch {
-
-        // Do not advance if progress could not be saved.
-
       }
 
       return;
-
     }
 
-    try {
+    // The learner has reached the end of the second checkpoint.
+    if (currentIndex === checkpointTwoEnd) {
+      try {
+        await startQuickTest(2);
+      } catch (error) {
+        console.error("Unable to start Checkpoint 2:", error);
+        setProgressError(
+          isTagalog
+            ? "Hindi masimulan ang pagsusulit. Pakisubukang muli."
+            : "Unable to start the Quick Test. Please try again."
+        );
+      }
 
-      await saveProgress(
-
-        currentIndex,
-
-        testIndex,
-
-        answers,
-
-        true
-
-      );
-
-      setIsQuickTest(true);
-
-    } catch {
-
-      // Do not enter the test if saving failed.
-
+      return;
     }
 
+    if (!isLast) {
+      const nextIndex = currentIndex + 1;
+
+      try {
+        await saveProgress(
+          nextIndex,
+          testIndex,
+          answers,
+          false
+        );
+
+        setCurrentIndex(nextIndex);
+      } catch {
+        // Do not advance if saving failed.
+      }
+    }
   };
 
   // --------------------------------------------------
-
-  // QUICK TEST
-
+  // QUICK TEST ANSWERS
   // --------------------------------------------------
 
   const handleAnswerSelect = async (option: string) => {
+    if (
+      selectedAnswer !== null ||
+      progressSaving ||
+      !attemptId ||
+      questions.length !== 3
+    ) {
+      return;
+    }
 
-    if (selectedAnswer !== null || progressSaving) return;
+    const currentQuestion = questions[testIndex];
 
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
-
-    if (!currentQ.options.includes(option)) return;
+    if (!currentQuestion.options.includes(option)) return;
 
     const updatedAnswers = [...answers];
-
-    updatedAnswers[testIndex + TEST_START_INDEX] = option;
+    updatedAnswers[testIndex] = option;
 
     try {
+      // The assessment table has no question_index column.
+      // Only update fields that actually exist in its schema.
+      const { error } = await supabase
+        .from("alphabet_assessment_attempts")
+        .update({
+          answers: updatedAnswers,
+        })
+        .eq("id", attemptId)
+        .eq("user_id", user?.id)
+        .eq("part_key", PART_KEY);
+
+      if (error) throw error;
 
       await saveProgress(
-
         currentIndex,
-
         testIndex,
-
         updatedAnswers,
-
         true
-
       );
 
       setAnswers(updatedAnswers);
-
       setSelectedAnswer(option);
-
-      setIsCorrect(option === currentQ.answer);
-
-    } catch {
-
-      // Do not accept an answer that could not be saved.
-
+      setIsCorrect(option === currentQuestion.answer);
+    } catch (error) {
+      console.error("Unable to save Quick Test answer:", error);
+      setProgressError(
+        isTagalog
+          ? "Hindi na-save ang iyong sagot. Pakisubukang muli."
+          : "Your answer could not be saved. Please try again."
+      );
     }
-
   };
 
   const handleNextTestQuestion = async () => {
+    if (
+      selectedAnswer === null ||
+      progressSaving ||
+      !attemptId ||
+      questions.length !== 3
+    ) {
+      return;
+    }
 
-    if (selectedAnswer === null || progressSaving) return;
-
-    if (testIndex < QUICK_TEST_QUESTIONS.length - 1) {
-
+    if (testIndex < questions.length - 1) {
       const nextIndex = testIndex + 1;
 
-      const nextAnswer = answers[nextIndex + TEST_START_INDEX] ?? null;
-
       try {
-
+        // Save the next question position in alphabet_progress.
+        // alphabet_assessment_attempts does not have question_index.
         await saveProgress(
-
           currentIndex,
-
           nextIndex,
-
           answers,
-
           true
-
         );
 
         setTestIndex(nextIndex);
 
+        const nextAnswer = answers[nextIndex] ?? null;
         setSelectedAnswer(nextAnswer);
-
         setIsCorrect(
-
           nextAnswer === null
-
             ? null
-
-            : nextAnswer === QUICK_TEST_QUESTIONS[nextIndex].answer
-
+            : nextAnswer === questions[nextIndex].answer
         );
-
-      } catch {
-
-        // Stay on the current question if saving failed.
-
+      } catch (error) {
+        console.error("Unable to move to the next question:", error);
+        setProgressError(
+          isTagalog
+            ? "Hindi ma-save ang kasalukuyang tanong. Pakisubukang muli."
+            : "Unable to save your current question. Please try again."
+        );
       }
 
       return;
-
     }
 
-    const answerKey = ["A", "U", "D"];
     const score = answers.reduce((totalScore, answer, index) => {
-      return answer === answerKey[index] ? totalScore + 1 : totalScore;
+      return answer === questions[index].answer
+        ? totalScore + 1
+        : totalScore;
     }, 0);
 
     const completedAt = new Date().toISOString();
 
     try {
+      const { error: attemptError } = await supabase
+        .from("alphabet_assessment_attempts")
+        .update({
+          answers,
+          score,
+          total_questions: 3,
+          status: "completed",
+          completed_at: completedAt,
+        })
+        .eq("id", attemptId)
+        .eq("user_id", user?.id)
+        .eq("part_key", PART_KEY);
+
+      if (attemptError) throw attemptError;
 
       await saveProgress(
-
         currentIndex,
-
         testIndex,
-
         answers,
-
         true,
-
         {
-
           score,
-
           completedAt,
-
         }
-
       );
 
-      navigate("/alphabetcomplete", {
+      if (getCheckpointNumber(currentIndex) === 1) {
+        // Checkpoint 1: return to the tutorial at letter T.
+        await saveProgress(
+          CHECKPOINTS[1].nextIndex,
+          0,
+          [null, null, null],
+          false
+        );
 
-        state: {
-
-          score,
-
-          total: 3,
-
-        },
-
-      });
-
-    } catch {
-
-      // The learner stays on the final question so they can retry.
-
+        setCurrentIndex(CHECKPOINTS[1].nextIndex);
+        setAnswers([null, null, null]);
+        setTestIndex(0);
+        setQuestions([]);
+        setAttemptId(null);
+        setSelectedAnswer(null);
+        setIsCorrect(null);
+        setIsQuickTest(false);
+      } else {
+        // Checkpoint 2: Part 2 is complete.
+        // saveProgress has already set is_completed = true.
+        navigate("/alphabet");
+      }
+    } catch (error) {
+      console.error("Unable to complete Quick Test:", error);
+      setProgressError(
+        isTagalog
+          ? "Hindi makumpleto ang pagsusulit. Pakisubukang muli."
+          : "Unable to complete the Quick Test. Please try again."
+      );
     }
-
   };
 
   const handleQuickTestBack = async () => {
-
     if (progressSaving) return;
 
     try {
-
       await saveProgress(
-
         currentIndex,
-
         testIndex,
-
         answers,
-
         false
-
       );
 
       setIsQuickTest(false);
-
+      setSelectedAnswer(null);
+      setIsCorrect(null);
     } catch {
-
       // Keep the learner in the test if saving failed.
-
     }
-
   };
 
   // --------------------------------------------------
-
   // LOADING STATE
-
   // --------------------------------------------------
 
   if (authLoading || progressLoading) {
-
     return (
-
       <main className="flex min-h-screen items-center justify-center bg-[#E4F4FF] px-4">
-
         <div className="text-center">
-
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#B8DDF6] border-t-[#36A9F4]" />
-
           <p className="font-bold text-[#164B9B]">
-
             {isTagalog
-
               ? "Nilo-load ang iyong progreso..."
-
               : "Loading your progress..."}
-
           </p>
-
         </div>
-
       </main>
-
     );
-
   }
 
   // --------------------------------------------------
-
   // QUICK TEST MODE
-
   // --------------------------------------------------
 
-  if (isQuickTest) {
-
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+  if (isQuickTest && questions.length === 3) {
+    const currentQuestion = questions[testIndex];
 
     return (
-
       <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-
         <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-
           <div className="flex items-center gap-3">
-
             <button
-
               type="button"
-
               onClick={handleQuickTestBack}
-
               disabled={progressSaving}
-
-              aria-label={isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"}
-
+              aria-label={
+                isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"
+              }
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
-
             >
-
               <ArrowLeft size={22} strokeWidth={2.5} />
-
             </button>
 
             <div>
-
               <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-
                 {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
-
               </h1>
-
               <p className="text-sm font-medium text-slate-600 sm:text-base">
-
-                {isTagalog ? "Subukan ang iyong natutunan." : "Test what you've learned."}
-
+                {getCheckpointLabel(
+                  getCheckpointNumber(currentIndex)
+                )}{" "}
+                ·{" "}
+                {isTagalog
+                  ? "Subukan ang iyong natutunan."
+                  : "Test what you've learned."}
               </p>
-
             </div>
-
           </div>
-
         </div>
 
         <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
-
         <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
 
         <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-
           {progressError && (
-
             <div
-
               role="alert"
-
               className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700"
-
             >
-
               {progressError}
-
             </div>
-
           )}
 
           {progressSaving && (
-
             <p className="mb-3 text-xs font-medium text-slate-500">
-
-              {isTagalog ? "Sine-save ang progreso..." : "Saving progress..."}
-
+              {isTagalog
+                ? "Sine-save ang progreso..."
+                : "Saving progress..."}
             </p>
-
           )}
 
           <div className="mb-4">
-
             <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
-
               {isTagalog
-
-                ? `Tanong ${testIndex + TEST_START_INDEX + 1} ng 3`
-
-                : `Question ${testIndex + TEST_START_INDEX + 1} of 3`}
-
+                ? `Tanong ${testIndex + 1} ng 3`
+                : `Question ${testIndex + 1} of 3`}
             </p>
 
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white/80" aria-hidden="true">
-
+            <div
+              className="h-3 w-full overflow-hidden rounded-full bg-white/80"
+              aria-hidden="true"
+            >
               <div
-
                 className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
-
                 style={{
-
-                  width: `${((testIndex + TEST_START_INDEX + 1) / 3) * 100}%`,
-
+                  width: `${((testIndex + 1) / 3) * 100}%`,
                 }}
-
               />
-
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
-
             <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
-
               <video
-
                 ref={testVideoRef}
-
                 src="/videos/FSLalphabet.mp4"
-
                 controls
-
                 playsInline
-
                 preload="metadata"
-
                 onTimeUpdate={handleTestVideoTimeUpdate}
-
                 onPlay={handleTestVideoPlay}
-
                 className="h-full w-full object-contain"
-
               />
-
             </div>
 
             <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-
               <div className="flex items-center gap-2 text-[#36A9F4]">
-
                 <Award size={22} />
-
                 <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
-
                   {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
-
                 </span>
-
               </div>
 
-              <div>
-
-                <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
-
-                  {isTagalog ? currentQ.questionTl : currentQ.questionEn}
-
-                </h2>
-
-              </div>
+              <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
+                {isTagalog
+                  ? currentQuestion.questionTl
+                  : currentQuestion.questionEn}
+              </h2>
 
               <div className="grid grid-cols-2 gap-3">
-
-                {currentQ.options.map((opt) => {
-
-                  let btnStyle =
-
+                {currentQuestion.options.map((option) => {
+                  let buttonStyle =
                     "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
 
-                  if (selectedAnswer === opt) {
-
-                    btnStyle = isCorrect
-
+                  if (selectedAnswer === option) {
+                    buttonStyle = isCorrect
                       ? "border-emerald-500 bg-emerald-100 text-emerald-700"
-
                       : "border-rose-500 bg-rose-100 text-rose-700";
-
-                  } else if (selectedAnswer && opt === currentQ.answer) {
-
-                    btnStyle =
-
+                  } else if (
+                    selectedAnswer &&
+                    option === currentQuestion.answer
+                  ) {
+                    buttonStyle =
                       "border-emerald-500 bg-emerald-100 text-emerald-700";
-
                   }
 
                   return (
-
                     <button
-
-                      key={opt}
-
+                      key={option}
                       type="button"
-
-                      disabled={selectedAnswer !== null || progressSaving}
-
-                      onClick={() => handleAnswerSelect(opt)}
-
-                      className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${btnStyle}`}
-
+                      disabled={
+                        selectedAnswer !== null || progressSaving
+                      }
+                      onClick={() => handleAnswerSelect(option)}
+                      className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${buttonStyle}`}
                     >
-
-                      {opt}
-
+                      {option}
                     </button>
-
                   );
-
                 })}
-
               </div>
 
               <button
-
                 type="button"
-
                 onClick={handleTestReplay}
-
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
-
               >
-
                 <RotateCcw size={20} aria-hidden="true" />
-
                 {isTagalog ? "Panoorin ulit" : "Watch again"}
-
               </button>
-
             </div>
-
           </div>
 
           {selectedAnswer !== null && (
-
             <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
-
-              <p className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}>
-
+              <p
+                className={`text-base font-extrabold ${
+                  isCorrect ? "text-emerald-600" : "text-rose-600"
+                }`}
+              >
                 {isCorrect
-
                   ? isTagalog
-
                     ? "Magaling! Tama ang sagot mo! 🎉"
-
                     : "Great job! Correct answer! 🎉"
-
                   : isTagalog
-
-                    ? `Mali! Ang tamang sagot ay ${currentQ.answer}.`
-
-                    : `Incorrect! The correct answer is ${currentQ.answer}.`}
-
+                    ? `Mali! Ang tamang sagot ay ${currentQuestion.answer}.`
+                    : `Incorrect! The correct answer is ${currentQuestion.answer}.`}
               </p>
 
               <button
-
                 type="button"
-
                 onClick={handleNextTestQuestion}
-
                 disabled={progressSaving}
-
                 className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
-
               >
-
-                {testIndex < QUICK_TEST_QUESTIONS.length - 1
-
+                {testIndex < questions.length - 1
                   ? isTagalog
-
                     ? "Susunod na Tanong"
-
                     : "Next Question"
-
                   : isTagalog
-
                     ? "Tapusin ang Pagsusulit"
-
                     : "Finish Test"}
 
                 <ArrowRight size={21} strokeWidth={3} />
-
               </button>
-
             </div>
-
           )}
-
         </section>
-
       </main>
-
     );
-
   }
 
   // --------------------------------------------------
-
   // STANDARD TUTORIAL MODE
-
   // --------------------------------------------------
 
   return (
-
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-
       <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-
         <div className="flex items-center gap-3">
-
           <button
-
             type="button"
-
             onClick={() => navigate("/alphabet")}
-
-            aria-label={isTagalog ? "Bumalik sa menu ng alpabeto" : "Back to alphabet menu"}
-
+            aria-label={
+              isTagalog
+                ? "Bumalik sa menu ng alpabeto"
+                : "Back to alphabet menu"
+            }
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
-
           >
-
             <ArrowLeft size={22} strokeWidth={2.5} />
-
           </button>
 
           <div>
-
             <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-
               {isTagalog ? "Tutorial sa Alpabeto" : "Alphabet Tutorial"}
-
             </h1>
-
             <p className="text-sm font-medium text-slate-600 sm:text-base">
-
               {isTagalog
-
                 ? "Matutunan ang mga titik N–Z gamit ang gabay na ito."
-
                 : "Learn letters N–Z step by step."}
-
             </p>
-
           </div>
-
         </div>
-
       </div>
 
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
-
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
-
       <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
-
       <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
-
       <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
-
       <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
       <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-
         {progressError && (
-
           <div
-
             role="alert"
-
             className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700"
-
           >
-
             {progressError}
-
           </div>
-
         )}
 
         {progressSaving && (
-
           <p className="mb-3 text-xs font-medium text-slate-500">
-
             {isTagalog ? "Sine-save ang progreso..." : "Saving progress..."}
-
           </p>
-
         )}
 
         <div className="mb-4">
-
           <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
-
             {isTagalog
-
               ? `Titik ${currentIndex + 1} ng ${total}`
-
               : `Letter ${currentIndex + 1} of ${total}`}
-
           </p>
 
           <div
-
             className="h-3 w-full overflow-hidden rounded-full bg-white/80"
-
             aria-hidden="true"
-
           >
-
             <div
-
               className="h-full rounded-full bg-[#36A9F4] transition-all duration-300 motion-reduce:transition-none"
-
               style={{
-
                 width: `${((currentIndex + 1) / total) * 100}%`,
-
               }}
-
             />
-
           </div>
-
         </div>
 
         <div
-
           className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2 scrollbar-none"
-
           role="group"
-
           aria-label={isTagalog ? "Piliin ang titik" : "Choose a letter"}
-
         >
-
           {ALPHABET.map((letter, position) => {
-
             const isCurrent = position === currentIndex;
 
             return (
-
               <button
-
                 key={letter}
-
                 ref={(element) => {
-
                   chipRefs.current[position] = element;
-
                 }}
-
                 type="button"
-
                 onClick={() => handleLetterChange(position)}
-
                 disabled={progressSaving}
-
                 aria-current={isCurrent ? "step" : undefined}
-
-                aria-label={isTagalog ? `Titik ${letter}` : `Letter ${letter}`}
-
+                aria-label={
+                  isTagalog ? `Titik ${letter}` : `Letter ${letter}`
+                }
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 ${
-
                   isCurrent
-
                     ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
-
                     : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
-
                 }`}
-
               >
-
                 {letter}
-
               </button>
-
             );
-
           })}
-
         </div>
 
         <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
-
           <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
-
             <video
-
               ref={videoRef}
-
               src="/videos/FSLalphabet.mp4"
-
               controls
-
               playsInline
-
               preload="metadata"
-
               onTimeUpdate={handleVideoTimeUpdate}
-
               onPlay={handleVideoPlay}
-
               className="h-full w-full object-contain"
-
             />
-
           </div>
 
           <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-
             <div className="flex flex-col items-center justify-center">
-
               <span className="text-5xl font-black text-[#426A91] sm:text-6xl">
-
-                {isTagalog ? `Titik ${currentLetter}` : `Letter ${currentLetter}`}
-
+                {isTagalog
+                  ? `Titik ${currentLetter}`
+                  : `Letter ${currentLetter}`}
               </span>
-
             </div>
 
             <div>
-
               <h2 className="mb-1 text-lg font-black text-[#454545] sm:text-xl">
-
-                {isTagalog ? "Paglalarawan:" : "Descriptions:"}
-
+                {isTagalog ? "Paglalarawan:" : "Description:"}
               </h2>
 
               <p className="text-base leading-relaxed text-[#555555] sm:text-lg">
-
                 {description}
-
               </p>
-
             </div>
 
             <button
-
               type="button"
-
               onClick={handleReplay}
-
               className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:w-auto sm:self-start sm:px-6"
-
             >
-
               <RotateCcw size={20} aria-hidden="true" />
-
               {isTagalog ? "Panoorin ulit" : "Watch again"}
-
             </button>
-
           </div>
-
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-3">
-
           {currentIndex > 0 ? (
-
             <button
-
               type="button"
-
               onClick={() => handleLetterChange(currentIndex - 1)}
-
               disabled={progressSaving}
-
               className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 text-lg font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
-
             >
-
-              <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
-
+              <ArrowLeft
+                size={21}
+                strokeWidth={3}
+                aria-hidden="true"
+              />
               {isTagalog ? "Nakaraan" : "Previous"}
-
             </button>
-
           ) : (
-
             <span aria-hidden="true" />
-
           )}
 
           <button
-
             type="button"
-
             onClick={handleNext}
-
             disabled={progressSaving}
-
             className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 text-lg font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
-
           >
-
-            {isLast
-
-              ? isTagalog
-
-                ? "Quick Test"
-
-                : "Quick Test"
-
+            {currentIndex === 5 || currentIndex === 12
+              ? "Quick Test"
               : isTagalog
-
                 ? "Susunod"
-
                 : "Next"}
 
-            {isLast ? (
-
-              <Check size={21} strokeWidth={3} aria-hidden="true" />
-
+            {currentIndex === 5 || currentIndex === 12 ? (
+              <Check
+                size={21}
+                strokeWidth={3}
+                aria-hidden="true"
+              />
             ) : (
-
-              <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
-
+              <ArrowRight
+                size={21}
+                strokeWidth={3}
+                aria-hidden="true"
+              />
             )}
-
           </button>
-
         </div>
-
       </section>
-
     </main>
-
   );
-
 }
