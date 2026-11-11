@@ -82,13 +82,6 @@ type QuickTestQuestion = {
   options: string[];
 };
 
-type AssessmentAttempt = {
-  id: string;
-  questions: QuickTestQuestion[];
-  answers: (string | null)[];
-  checkpoint_number: number;
-};
-
 const shuffle = <T,>(items: T[]): T[] => {
   const result = [...items];
 
@@ -190,10 +183,6 @@ export default function AlphabetTutorialPart2() {
       return Promise.reject(new Error("No authenticated user."));
     }
 
-    const isFinalCheckpointCompletion =
-      completion !== undefined &&
-      getCheckpointNumber(letterIndex) === 2;
-
     const progressData = {
       user_id: user.id,
       part_key: PART_KEY,
@@ -205,11 +194,6 @@ export default function AlphabetTutorialPart2() {
       tutorial_total_questions: completion ? 3 : null,
       tutorial_completed_at: completion?.completedAt ?? null,
       updated_at: new Date().toISOString(),
-
-      // Only mark Part 2 complete after Checkpoint 2.
-      ...(isFinalCheckpointCompletion
-        ? { is_completed: true }
-        : {}),
     };
 
     pendingSaves.current += 1;
@@ -860,7 +844,7 @@ export default function AlphabetTutorialPart2() {
         setIsQuickTest(false);
       } else {
         // Checkpoint 2: Part 2 is complete.
-        // saveProgress has already set is_completed = true.
+        // Completion is recorded using tutorial_completed_at.
         navigate("/alphabet");
       }
     } catch (error) {
