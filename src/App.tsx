@@ -1,13 +1,21 @@
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import {
+    Routes,
+    Route,
+    Navigate,
+} from "react-router-dom";
 
 import { AudioProvider } from "./context/AudioContext";
 import { LanguageProvider } from "./context/LanguageContext";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import PublicOnlyRoute from "./components/PublicOnlyRoute";
 
-// Authentication pages
+// =========================================================
+// AUTHENTICATION PAGES
+// =========================================================
+
 import SignIn from "./pages/user/signin";
 import SignUp from "./pages/user/signup";
 import TermsAndConditionsPage from "./pages/user/termsandcondition";
@@ -15,7 +23,10 @@ import OtpPage from "./pages/user/otp";
 import ForgotPassword from "./pages/user/forgotpassword";
 import ResetPassword from "./pages/user/resetpassword";
 
-// Logged-in pages
+// =========================================================
+// LOGGED-IN PAGES
+// =========================================================
+
 import CategoriesPage from "./pages/logged-in/categories/CategoriesPage";
 
 import AlphabetPage from "./pages/logged-in/alphabet/alphabet";
@@ -31,6 +42,51 @@ import NumbersTutorial from "./pages/logged-in/numbers/numberstutorial";
 import GreetingsPage from "./pages/logged-in/greetings/greetings";
 import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
 
+// =========================================================
+// DEFAULT ROUTE
+// =========================================================
+
+function DefaultRoute() {
+    const { session, loading } = useAuth();
+
+    // Wait for Supabase to restore the previous session.
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-50">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-sky-200 border-t-sky-500" />
+
+                    <p className="text-sm font-medium text-slate-600">
+                        Checking your account...
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // Existing session: continue to the application.
+    if (session) {
+        return (
+            <Navigate
+                to="/categories"
+                replace
+            />
+        );
+    }
+
+    // No session: send the user to sign-in.
+    return (
+        <Navigate
+            to="/signin"
+            replace
+        />
+    );
+}
+
+// =========================================================
+// APP
+// =========================================================
+
 function App() {
     return (
         <AudioProvider>
@@ -42,23 +98,27 @@ function App() {
                         {/* Default Route */}
                         <Route
                             path="/"
-                            element={
-                                <Navigate
-                                    to="/signin"
-                                    replace
-                                />
-                            }
+                            element={<DefaultRoute />}
                         />
 
                         {/* Public Routes */}
+
                         <Route
                             path="/signin"
-                            element={<SignIn />}
+                            element={
+                                <PublicOnlyRoute>
+                                    <SignIn />
+                                </PublicOnlyRoute>
+                            }
                         />
 
                         <Route
                             path="/signup"
-                            element={<SignUp />}
+                            element={
+                                <PublicOnlyRoute>
+                                    <SignUp />
+                                </PublicOnlyRoute>
+                            }
                         />
 
                         <Route
@@ -82,15 +142,18 @@ function App() {
                         />
 
                         {/* Protected Routes */}
+
                         <Route element={<ProtectedRoute />}>
 
                             {/* Categories */}
+
                             <Route
                                 path="/categories"
                                 element={<CategoriesPage />}
                             />
 
                             {/* Alphabet */}
+
                             <Route
                                 path="/alphabet"
                                 element={<AlphabetPage />}
@@ -105,7 +168,7 @@ function App() {
                                 path="/alphabettutorial2"
                                 element={<AlphabetTutorial2 />}
                             />
-                            
+
                             <Route
                                 path="/alphabetcomplete"
                                 element={<AlphabetComplete />}
@@ -115,13 +178,14 @@ function App() {
                                 path="/alphabetquiz"
                                 element={<AlphabetQuiz />}
                             />
-                            
+
                             <Route
                                 path="/championship"
                                 element={<AlphabetChampionship />}
                             />
 
                             {/* Numbers */}
+
                             <Route
                                 path="/numbers"
                                 element={<NumbersPage />}
@@ -133,6 +197,7 @@ function App() {
                             />
 
                             {/* Greetings */}
+
                             <Route
                                 path="/greetings"
                                 element={<GreetingsPage />}
@@ -146,6 +211,7 @@ function App() {
                         </Route>
 
                         {/* Unknown Routes */}
+
                         <Route
                             path="*"
                             element={
