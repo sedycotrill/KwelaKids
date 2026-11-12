@@ -1,6 +1,15 @@
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -60,10 +69,10 @@ const PASSING_SCORE = Math.ceil(
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 /*
- * Corrected timestamps based on the uploaded FSLalphabet.mp4.
+ * Video timestamps for each FSL alphabet letter.
  *
- * Each question retrieves its video segment using its letter.
- * Randomizing question order does not change these mappings.
+ * The timestamp is determined by the question's letter,
+ * not its position in the randomized question array.
  */
 const ALPHABET_TIMESTAMPS: Record<
   string,
@@ -97,13 +106,11 @@ const ALPHABET_TIMESTAMPS: Record<
   Z: { start: 60.00, end: 63.25 },
 };
 
-/*
- * Small playback buffer.
- *
- * Stops slightly before the next segment begins so the next
- * letter does not accidentally appear in the current question.
- */
 const VIDEO_END_BUFFER = 0.05;
+
+/* ---------------------------------------------------------
+   QUESTION HELPERS
+--------------------------------------------------------- */
 
 /* Fisher-Yates shuffle. */
 const shuffleArray = <T,>(array: T[]): T[] => {
@@ -123,56 +130,106 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 /*
  * Creates a new shuffled Championship question set.
- * Existing attempts always use their saved question order.
+ *
+ * Question order and answer-option order are randomized
+ * independently.
  */
-const createChampionshipQuestions = (): ChampionshipQuestion[] => {
-  const shuffledLetters = shuffleArray(ALPHABET);
+const createChampionshipQuestions =
+  (): ChampionshipQuestion[] => {
+    const shuffledLetters = shuffleArray(ALPHABET);
 
-  return shuffledLetters.map((letter) => {
-    const distractors = shuffleArray(
-      ALPHABET.filter((item) => item !== letter)
-    ).slice(0, 3);
+    return shuffledLetters.map((letter) => {
+      const distractors = shuffleArray(
+        ALPHABET.filter((item) => item !== letter)
+      ).slice(0, 3);
 
-    const options = shuffleArray([
-      letter,
-      ...distractors,
-    ]);
+      const options = shuffleArray([
+        letter,
+        ...distractors,
+      ]);
 
-    return {
-      id: `championship-${letter}`,
-      letter,
-      answer: letter,
-      options,
-      question_en: "Which letter matches this FSL sign?",
-      question_tl:
-        "Anong titik ang ipinapakita sa senyas na ito?",
-    };
-  });
-};
+      return {
+        id: `championship-${letter}`,
+        letter,
+        answer: letter,
+        options,
+        question_en: "Which letter matches this FSL sign?",
+        question_tl:
+          "Anong titik ang ipinapakita sa senyas na ito?",
+      };
+    });
+  };
 
+/*
+ * Validate the saved question structure before using it.
+ */
 const normalizeQuestions = (
   value: unknown
 ): ChampionshipQuestion[] => {
   if (!Array.isArray(value)) return [];
 
-  return value as ChampionshipQuestion[];
+  return value.filter((item): item is ChampionshipQuestion => {
+    return (
+      typeof item === "object" &&
+      item !== null &&
+      typeof item.id === "string" &&
+      typeof item.letter === "string" &&
+      typeof item.answer === "string" &&
+      Array.isArray(item.options) &&
+      item.options.length === 4 &&
+      item.options.every(
+        (option: unknown) => typeof option === "string"
+      ) &&
+      typeof item.question_en === "string" &&
+      typeof item.question_tl === "string"
+    );
+  });
 };
 
+/*
+ * Normalize persisted answers.
+ */
 const normalizeAnswers = (
   value: unknown
 ): ChampionshipAnswer[] => {
   if (!Array.isArray(value)) return [];
 
-  return value as ChampionshipAnswer[];
+  return value.filter((item): item is ChampionshipAnswer => {
+    return (
+      typeof item === "object" &&
+      item !== null &&
+      typeof item.question_id === "string" &&
+      typeof item.question_index === "number" &&
+      typeof item.selected_answer === "string" &&
+      typeof item.correct_answer === "string" &&
+      typeof item.is_correct === "boolean" &&
+      typeof item.answered_at === "string"
+    );
+  });
 };
+
+/* ---------------------------------------------------------
+   CHAMPIONSHIP COMPONENT
+--------------------------------------------------------- */
 
 export default function Championship() {
   const navigate = useNavigate();
+
+  const [searchParams] = useSearchParams();
 
   const { language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
 
   const isTagalog = language === "tl";
+
+  /*
+   * Explicit retry request.
+   *
+   * When true, the component must create a fresh attempt
+   * without checking completed or unfinished attempts.
+   */
+  const forceNewAttempt =
+    searchParams.get("newAttempt") === "true";
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -207,16 +264,8 @@ export default function Championship() {
   const [showFeedback, setShowFeedback] = useState(false);
 
   /*
-   * IMPORTANT QUESTION INDEX FIX
-   *
-   * When an answer is saved, answers.length increases.
-   *
-   * While feedback is displayed, subtract one so the
-   * component continues displaying the question that
-   * was just answered.
-   *
-   * When Next is clicked, showFeedback becomes false,
-   * allowing the component to display the next question.
+   * While feedback is displayed, remain on the question
+   * that was just answered.
    */
   const currentQuestionIndex = showFeedback
     ? answers.length - 1
@@ -234,8 +283,7 @@ export default function Championship() {
   }, [questions, currentQuestionIndex]);
 
   /*
-   * The video segment is always determined by the
-   * letter belonging to the active question.
+   * Video segment follows the current question's letter.
    */
   const currentTimestamp = currentQuestion
     ? ALPHABET_TIMESTAMPS[currentQuestion.letter] ?? null
@@ -254,6 +302,10 @@ export default function Championship() {
           100
         )
       : 0;
+
+  /* ---------------------------------------------------------
+     BILINGUAL TEXT
+  --------------------------------------------------------- */
 
   const text = {
     loading: isTagalog
@@ -339,13 +391,6 @@ export default function Championship() {
      VIDEO SEEKING AND PLAYBACK
   --------------------------------------------------------- */
 
-  /*
-   * Seeks to the requested timestamp and waits until
-   * the browser finishes seeking before starting playback.
-   *
-   * Returns a cleanup function to prevent outdated
-   * playback operations from running after a question changes.
-   */
   const seekAndPlaySegment = useCallback(
     (
       startTime: number,
@@ -415,10 +460,6 @@ export default function Championship() {
 
         video.currentTime = targetTime;
 
-        /*
-         * If the browser is already at the requested
-         * position, a seeked event may not be necessary.
-         */
         if (
           !video.seeking &&
           Math.abs(video.currentTime - targetTime) < 0.05
@@ -535,10 +576,6 @@ export default function Championship() {
   const playCurrentSegment = useCallback(() => {
     if (!currentTimestamp) return;
 
-    /*
-     * Cancel any previous playback operation before
-     * replaying the active segment.
-     */
     playbackCleanupRef.current?.();
 
     const cleanup = seekAndPlaySegment(
@@ -569,6 +606,26 @@ export default function Championship() {
       id: string,
       finalAnswers: ChampionshipAnswer[]
     ) => {
+      if (!user) {
+        setError(
+          isTagalog
+            ? "Hindi ma-verify ang iyong account."
+            : "Unable to verify your account."
+        );
+
+        return;
+      }
+
+      if (finalAnswers.length !== TOTAL_QUESTIONS) {
+        setError(
+          isTagalog
+            ? "Hindi pa kumpleto ang iyong mga sagot."
+            : "Your answers are not yet complete."
+        );
+
+        return;
+      }
+
       const finalScore = finalAnswers.filter(
         (answer) => answer.is_correct
       ).length;
@@ -583,6 +640,7 @@ export default function Championship() {
           completed_at: new Date().toISOString(),
         })
         .eq("id", id)
+        .eq("user_id", user.id)
         .eq("assessment_type", "championship")
         .eq("part_key", "3")
         .eq("status", "in_progress")
@@ -604,11 +662,15 @@ export default function Championship() {
         return;
       }
 
+      /*
+       * Open the result page using the exact completed
+       * attempt UUID.
+       */
       navigate(
-        `/alphabetcomplete?attempt=${encodeURIComponent(id)}`
+        `/alphabetcomplete?attempt=${encodeURIComponent(data.id)}`
       );
     },
-    [navigate, isTagalog]
+    [navigate, isTagalog, user]
   );
 
   /* ---------------------------------------------------------
@@ -635,29 +697,102 @@ export default function Championship() {
       const userId = user.id;
 
       /*
-       * Retrieve the latest unfinished Championship attempt.
+       * Consume the explicit retry parameter.
+       *
+       * IMPORTANT:
+       * forceNewAttempt remains true for this initialization
+       * even after the URL is replaced.
+       *
+       * This prevents a refresh from accidentally creating
+       * another fresh attempt.
        */
-      const {
-        data: existingAttempt,
-        error: attemptError,
-      } = await supabase
-        .from("alphabet_assessment_attempts")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("assessment_type", "championship")
-        .eq("part_key", "3")
-        .eq("status", "in_progress")
-        .order("started_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      if (forceNewAttempt) {
+        navigate("/championship", { replace: true });
+      }
 
-      if (attemptError) {
-        throw attemptError;
+      /*
+       * NORMAL ACCESS:
+       *
+       * First check whether the user already has a completed
+       * Championship attempt.
+       *
+       * If one exists, redirect to that result immediately.
+       *
+       * This check is deliberately skipped when the user
+       * explicitly chooses Try Again.
+       */
+      if (!forceNewAttempt) {
+        const {
+          data: completedAttempt,
+          error: completedError,
+        } = await supabase
+          .from("alphabet_assessment_attempts")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("assessment_type", "championship")
+          .eq("part_key", "3")
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (completedError) {
+          throw completedError;
+        }
+
+        if (completedAttempt) {
+          /*
+           * A completed record already exists.
+           * Do not resume or insert another attempt.
+           */
+          navigate(
+            `/alphabetcomplete?attempt=${encodeURIComponent(
+              completedAttempt.id
+            )}`,
+            { replace: true }
+          );
+
+          return;
+        }
+      }
+
+      /*
+       * Only retrieve an unfinished attempt when this
+       * is NOT an intentional fresh-attempt request.
+       *
+       * This happens only after confirming that there
+       * is no completed attempt.
+       */
+      let existingAttempt: any = null;
+
+      if (!forceNewAttempt) {
+        const {
+          data,
+          error: attemptError,
+        } = await supabase
+          .from("alphabet_assessment_attempts")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("assessment_type", "championship")
+          .eq("part_key", "3")
+          .eq("status", "in_progress")
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (attemptError) {
+          throw attemptError;
+        }
+
+        existingAttempt = data;
       }
 
       let activeAttempt: AssessmentAttempt;
 
       if (existingAttempt) {
+        /*
+         * Resume the latest unfinished attempt.
+         */
         const savedQuestions = normalizeQuestions(
           existingAttempt.questions
         );
@@ -677,6 +812,31 @@ export default function Championship() {
           );
         }
 
+        /*
+         * Verify that the saved answers correspond to
+         * the saved question order and have no duplicates.
+         */
+        const savedQuestionIds = new Set(
+          savedQuestions.map((question) => question.id)
+        );
+
+        const savedAnswerIds = new Set<string>();
+
+        for (const answer of savedAnswers) {
+          if (
+            !savedQuestionIds.has(answer.question_id) ||
+            savedAnswerIds.has(answer.question_id)
+          ) {
+            throw new Error(
+              isTagalog
+                ? "Hindi wasto ang mga naka-save na sagot."
+                : "The saved answers are invalid."
+            );
+          }
+
+          savedAnswerIds.add(answer.question_id);
+        }
+
         activeAttempt = {
           ...existingAttempt,
           questions: savedQuestions,
@@ -684,8 +844,10 @@ export default function Championship() {
         } as AssessmentAttempt;
       } else {
         /*
-         * No unfinished attempt exists.
-         * Generate a new randomized question set.
+         * No unfinished attempt exists, or the user
+         * explicitly requested a fresh attempt.
+         *
+         * Create a NEW row with a NEW UUID.
          */
         const newQuestions =
           createChampionshipQuestions();
@@ -722,24 +884,31 @@ export default function Championship() {
             insertedAttempt.answers
           ),
         } as AssessmentAttempt;
+
+        if (
+          activeAttempt.questions.length !== TOTAL_QUESTIONS
+        ) {
+          throw new Error(
+            isTagalog
+              ? "Hindi maihanda ang mga tanong sa Championship."
+              : "The Championship questions could not be prepared."
+          );
+        }
       }
 
+      /*
+       * Restore the selected attempt.
+       */
       setAttemptId(activeAttempt.id);
       setQuestions(activeAttempt.questions);
       setAnswers(activeAttempt.answers);
 
-      /*
-       * Restore the first unanswered question.
-       *
-       * Feedback is intentionally not restored after returning.
-       * The next unanswered question will be displayed.
-       */
       setSelectedAnswer(null);
       setShowFeedback(false);
 
       /*
-       * If all 26 answers were saved but the attempt
-       * remained in_progress, complete it automatically.
+       * If all answers were saved but the completion
+       * update did not finish, complete the same attempt.
        */
       if (
         activeAttempt.answers.length === TOTAL_QUESTIONS &&
@@ -771,10 +940,12 @@ export default function Championship() {
     completeAttempt,
     isTagalog,
     text.errorTitle,
+    forceNewAttempt,
+    navigate,
   ]);
 
   /*
-   * Initialize only after AuthContext finishes loading.
+   * Initialize once AuthContext has finished loading.
    */
   useEffect(() => {
     if (authLoading) return;
@@ -793,6 +964,7 @@ export default function Championship() {
     if (
       !currentQuestion ||
       !attemptId ||
+      !user ||
       savingRef.current ||
       showFeedback ||
       answers.length >= TOTAL_QUESTIONS
@@ -823,27 +995,37 @@ export default function Championship() {
 
     try {
       /*
-       * Persist the answer immediately.
+       * Save the answer immediately.
+       *
+       * select("id").maybeSingle() verifies that the
+       * expected in-progress attempt was actually updated.
        */
-      const { error: saveError } = await supabase
+      const { data, error: saveError } = await supabase
         .from("alphabet_assessment_attempts")
         .update({
           answers: updatedAnswers,
         })
         .eq("id", attemptId)
-        .eq("user_id", user?.id ?? "")
+        .eq("user_id", user.id)
         .eq("assessment_type", "championship")
         .eq("part_key", "3")
-        .eq("status", "in_progress");
+        .eq("status", "in_progress")
+        .select("id")
+        .maybeSingle();
 
       if (saveError) {
         throw saveError;
       }
 
+      if (!data) {
+        throw new Error(
+          "The Championship attempt could not be updated."
+        );
+      }
+
       /*
-       * The active question remains unchanged because
-       * currentQuestionIndex subtracts one while feedback
-       * is visible.
+       * Only update the interface after the database
+       * confirms that the answer was saved.
        */
       setAnswers(updatedAnswers);
       setSelectedAnswer(option);
@@ -890,8 +1072,7 @@ export default function Championship() {
 
     /*
      * Advancing removes feedback mode.
-     * currentQuestionIndex now becomes answers.length,
-     * which is the next unanswered question.
+     * The next unanswered question is then displayed.
      */
     setSelectedAnswer(null);
     setShowFeedback(false);

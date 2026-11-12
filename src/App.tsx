@@ -35,6 +35,7 @@ import AlphabetTutorial from "./pages/logged-in/alphabet/alphabettutorial";
 import AlphabetTutorial2 from "./pages/logged-in/alphabet/alphabettutorial2";
 import AlphabetComplete from "./pages/logged-in/alphabet/alphabetcomplete";
 import AlphabetChampionship from "./pages/logged-in/alphabet/alphabetchampionship";
+import AlphabetChampionshipHistory from "./pages/logged-in/alphabet/alphabetchampionshiphistory";
 
 import NumbersPage from "./pages/logged-in/numbers/numbers";
 import NumbersTutorial from "./pages/logged-in/numbers/numberstutorial";
@@ -178,6 +179,11 @@ function App() {
                                 path="/championshipsummary"
                                 element={<AlphabetChampionshipSummary />}
                             />
+
+                            <Route
+                                path="/championshiphistory"
+                                element={<AlphabetChampionshipHistory />}
+                                />
 
                             <Route
                                 path="/championship"

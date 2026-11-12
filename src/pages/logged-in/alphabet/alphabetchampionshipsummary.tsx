@@ -10,6 +10,7 @@ import {
   AlertCircle,
   RotateCcw,
   BookOpen,
+  LogOut,
 } from "lucide-react";
 
 import { useLanguage } from "../../../context/LanguageContext";
@@ -50,6 +51,7 @@ type ChampionshipAttempt = {
 };
 
 const TOTAL_QUESTIONS = 26;
+const PASSING_PERCENTAGE = 75;
 
 export default function AlphabetChampionshipSummary() {
   const navigate = useNavigate();
@@ -75,12 +77,13 @@ export default function AlphabetChampionshipSummary() {
       setError(null);
       setAttempt(null);
 
-      if (!user) {
+      if (!user?.id) {
         setError(
           isTagalog
             ? "Kailangan mong mag-sign in upang makita ang buod."
             : "You must sign in to view this summary."
         );
+
         setLoading(false);
         return;
       }
@@ -88,9 +91,10 @@ export default function AlphabetChampionshipSummary() {
       if (!attemptId) {
         setError(
           isTagalog
-            ? "Walang nahanap na championship attempt."
-            : "No championship attempt was specified."
+            ? "Walang nahanap na Championship attempt."
+            : "No Championship attempt was specified."
         );
+
         setLoading(false);
         return;
       }
@@ -98,16 +102,14 @@ export default function AlphabetChampionshipSummary() {
       try {
         const { data, error: fetchError } = await supabase
           .from("alphabet_assessment_attempts")
-          .select(
-            `
-              id,
-              questions,
-              answers,
-              score,
-              total_questions,
-              status
-            `
-          )
+          .select(`
+            id,
+            questions,
+            answers,
+            score,
+            total_questions,
+            status
+          `)
           .eq("id", attemptId)
           .eq("user_id", user.id)
           .eq("assessment_type", "championship")
@@ -122,7 +124,7 @@ export default function AlphabetChampionshipSummary() {
         if (!data) {
           throw new Error(
             isTagalog
-              ? "Hindi makita ang resulta. Maaaring wala na ito o wala kang pahintulot na tingnan ito."
+              ? "Hindi makita ang resulta. Maaaring wala ito o wala kang pahintulot na tingnan ito."
               : "The result could not be found. It may not exist or you may not have permission to view it."
           );
         }
@@ -130,6 +132,7 @@ export default function AlphabetChampionshipSummary() {
         const questions = data.questions as ChampionshipQuestion[];
         const answers = data.answers as ChampionshipAnswer[];
 
+        // Validate the saved question and answer arrays.
         if (
           !Array.isArray(questions) ||
           !Array.isArray(answers) ||
@@ -138,36 +141,74 @@ export default function AlphabetChampionshipSummary() {
         ) {
           throw new Error(
             isTagalog
-              ? "Hindi kumpleto o hindi wasto ang naka-save na championship answers."
-              : "The saved championship answers are incomplete or invalid."
+              ? "Hindi kumpleto o hindi wasto ang naka-save na Championship answers."
+              : "The saved Championship answers are incomplete or invalid."
           );
         }
 
+        // Validate question properties.
         const validQuestions = questions.every(
           (question) =>
             question &&
             typeof question.id === "string" &&
             typeof question.letter === "string" &&
-            typeof question.answer === "string"
+            typeof question.answer === "string" &&
+            typeof question.question_en === "string" &&
+            typeof question.question_tl === "string"
         );
 
+        if (!validQuestions) {
+          throw new Error(
+            isTagalog
+              ? "May hindi wastong datos sa naka-save na mga tanong."
+              : "The saved questions contain invalid data."
+          );
+        }
+
+        // Validate answer properties.
         const validAnswers = answers.every(
           (answer) =>
             answer &&
             typeof answer.question_id === "string" &&
             typeof answer.selected_answer === "string" &&
-            typeof answer.question_index === "number"
+            typeof answer.correct_answer === "string" &&
+            typeof answer.question_index === "number" &&
+            typeof answer.is_correct === "boolean"
         );
 
-        if (!validQuestions || !validAnswers) {
+        if (!validAnswers) {
           throw new Error(
             isTagalog
-              ? "May hindi wastong datos sa naka-save na resulta."
-              : "The saved result contains invalid answer data."
+              ? "May hindi wastong datos sa naka-save na mga sagot."
+              : "The saved answers contain invalid data."
           );
         }
 
-        const questionIds = new Set(questions.map((question) => question.id));
+        // Ensure every question has a unique ID.
+        const questionIds = new Set(
+          questions.map((question) => question.id)
+        );
+
+        if (questionIds.size !== TOTAL_QUESTIONS) {
+          throw new Error(
+            isTagalog
+              ? "May magkakaparehong question ID sa naka-save na resulta."
+              : "Duplicate question IDs were found in the saved result."
+          );
+        }
+
+        // Ensure every question has exactly one corresponding answer.
+        const answerIds = new Set(
+          answers.map((answer) => answer.question_id)
+        );
+
+        if (answerIds.size !== TOTAL_QUESTIONS) {
+          throw new Error(
+            isTagalog
+              ? "May nawawala o dobleng sagot sa naka-save na resulta."
+              : "Missing or duplicate answers were found in the saved result."
+          );
+        }
 
         const allAnswersMatch = answers.every((answer) =>
           questionIds.has(answer.question_id)
@@ -181,18 +222,36 @@ export default function AlphabetChampionshipSummary() {
           );
         }
 
+        // Validate the saved score.
+        const savedScore = Number(data.score);
+        const savedTotal = Number(data.total_questions);
+
+        if (
+          !Number.isInteger(savedScore) ||
+          !Number.isInteger(savedTotal) ||
+          savedScore < 0 ||
+          savedScore > TOTAL_QUESTIONS ||
+          savedTotal !== TOTAL_QUESTIONS
+        ) {
+          throw new Error(
+            isTagalog
+              ? "Hindi wasto ang naka-save na marka."
+              : "The saved Championship score is invalid."
+          );
+        }
+
         if (cancelled) return;
 
         setAttempt({
           id: data.id,
           questions,
           answers,
-          score: Number(data.score ?? 0),
-          total_questions: Number(data.total_questions),
+          score: savedScore,
+          total_questions: savedTotal,
           status: data.status,
         });
       } catch (err) {
-        console.error("Error loading championship summary:", err);
+        console.error("Error loading Championship summary:", err);
 
         if (!cancelled) {
           setError(
@@ -215,15 +274,20 @@ export default function AlphabetChampionshipSummary() {
     return () => {
       cancelled = true;
     };
-  }, [attemptId, user, authLoading, isTagalog]);
+  }, [attemptId, user?.id, authLoading, isTagalog]);
 
+  // Match each answer with its original question.
+  // The saved question array retains the shuffled attempt order.
   const incorrectAnswers = useMemo<IncorrectAnswer[]>(() => {
     if (!attempt) return [];
 
     const questionMap = new Map(
       attempt.questions.map((question, index) => [
         question.id,
-        { question, index },
+        {
+          question,
+          index,
+        },
       ])
     );
 
@@ -233,9 +297,15 @@ export default function AlphabetChampionshipSummary() {
 
         if (!matched) return null;
 
-        const isCorrect =
-          answer.selected_answer.trim().toUpperCase() ===
-          matched.question.answer.trim().toUpperCase();
+        const selectedAnswer = answer.selected_answer.trim().toUpperCase();
+
+        const correctAnswer = (
+          answer.correct_answer || matched.question.answer
+        )
+          .trim()
+          .toUpperCase();
+
+        const isCorrect = selectedAnswer === correctAnswer;
 
         if (isCorrect) return null;
 
@@ -257,6 +327,9 @@ export default function AlphabetChampionshipSummary() {
     ? Math.round((attempt.score / attempt.total_questions) * 100)
     : 0;
 
+  const passed = percentage >= PASSING_PERCENTAGE;
+
+  // Navigation
   const handleBack = () => {
     if (!attemptId) {
       navigate("/categories");
@@ -269,13 +342,19 @@ export default function AlphabetChampionshipSummary() {
   };
 
   const handleTryAgain = () => {
-    navigate("/championship");
+    navigate("/championship?newAttempt=true");
   };
 
+  const handleExit = () => {
+    navigate("/categories");
+  };
+
+  // Loading screen
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-6">
         <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+
         <p className="text-gray-600 font-medium">
           {isTagalog
             ? "Inihahanda ang iyong resulta..."
@@ -285,6 +364,7 @@ export default function AlphabetChampionshipSummary() {
     );
   }
 
+  // Error screen
   if (error || !attempt) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6">
@@ -294,18 +374,25 @@ export default function AlphabetChampionshipSummary() {
           </div>
 
           <h1 className="text-2xl font-bold text-gray-800 mb-3">
-            {isTagalog ? "Hindi Makita ang Resulta" : "Result Unavailable"}
+            {isTagalog
+              ? "Hindi Makita ang Resulta"
+              : "Result Unavailable"}
           </h1>
 
           <p className="text-gray-600 leading-relaxed mb-7">
-            {error}
+            {error ||
+              (isTagalog
+                ? "Hindi makita ang iyong resulta."
+                : "Your result could not be found.")}
           </p>
 
           <button
-            onClick={() => navigate("/categories")}
+            onClick={handleExit}
             className="w-full rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white transition hover:bg-indigo-700"
           >
-            {isTagalog ? "Bumalik sa Categories" : "Back to Categories"}
+            {isTagalog
+              ? "Bumalik sa Categories"
+              : "Back to Categories"}
           </button>
         </div>
       </div>
@@ -315,17 +402,24 @@ export default function AlphabetChampionshipSummary() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-4xl">
+
+        {/* Back to result */}
         <button
           onClick={handleBack}
           className="mb-6 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-gray-600 transition hover:bg-white hover:text-indigo-700"
         >
           <ArrowLeft size={20} />
+
           <span className="font-medium">
-            {isTagalog ? "Bumalik sa Resulta" : "Back to Results"}
+            {isTagalog
+              ? "Bumalik sa Resulta"
+              : "Back to Results"}
           </span>
         </button>
 
+        {/* Summary header and score */}
         <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-xl border border-gray-100">
+
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8 text-center text-white sm:px-10">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
               <BookOpen size={34} />
@@ -344,11 +438,16 @@ export default function AlphabetChampionshipSummary() {
             </p>
           </div>
 
+          {/* Score cards */}
           <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
+
             <div className="rounded-2xl bg-indigo-50 p-5 text-center">
               <p className="text-sm font-medium text-indigo-600">
-                {isTagalog ? "Kabuuang Tanong" : "Total Questions"}
+                {isTagalog
+                  ? "Kabuuang Tanong"
+                  : "Total Questions"}
               </p>
+
               <p className="mt-2 text-3xl font-extrabold text-indigo-800">
                 {attempt.total_questions}
               </p>
@@ -356,8 +455,11 @@ export default function AlphabetChampionshipSummary() {
 
             <div className="rounded-2xl bg-green-50 p-5 text-center">
               <p className="text-sm font-medium text-green-700">
-                {isTagalog ? "Tamang Sagot" : "Correct Answers"}
+                {isTagalog
+                  ? "Tamang Sagot"
+                  : "Correct Answers"}
               </p>
+
               <p className="mt-2 text-3xl font-extrabold text-green-700">
                 {correctCount}
               </p>
@@ -365,31 +467,77 @@ export default function AlphabetChampionshipSummary() {
 
             <div className="rounded-2xl bg-red-50 p-5 text-center">
               <p className="text-sm font-medium text-red-700">
-                {isTagalog ? "Maling Sagot" : "Incorrect Answers"}
+                {isTagalog
+                  ? "Maling Sagot"
+                  : "Incorrect Answers"}
               </p>
+
               <p className="mt-2 text-3xl font-extrabold text-red-700">
                 {incorrectAnswers.length}
               </p>
             </div>
+
           </div>
 
+          {/* Percentage and progress */}
           <div className="px-6 pb-7 sm:px-8">
-            <div className="flex items-center justify-between text-sm font-medium text-gray-600">
-              <span>{isTagalog ? "Iyong Iskor" : "Your Score"}</span>
+
+            <div className="mb-3 flex items-center justify-between text-sm font-medium text-gray-600">
+              <span>
+                {isTagalog ? "Iyong Iskor" : "Your Score"}
+              </span>
+
               <span>
                 {attempt.score}/{attempt.total_questions} ({percentage}%)
               </span>
             </div>
 
-            <div className="mt-3 h-3 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                className={`h-full rounded-full transition-all ${
+                  passed
+                    ? "bg-gradient-to-r from-green-400 to-green-600"
+                    : "bg-gradient-to-r from-orange-400 to-red-500"
+                }`}
+                style={{
+                  width: `${Math.min(100, Math.max(0, percentage))}%`,
+                }}
               />
+            </div>
+
+            <div className="mt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${
+                  passed
+                    ? "bg-green-100 text-green-700"
+                    : "bg-orange-100 text-orange-700"
+                }`}
+              >
+                {passed ? (
+                  <Trophy size={16} />
+                ) : (
+                  <RotateCcw size={16} />
+                )}
+
+                {passed
+                  ? isTagalog
+                    ? "NAIPASA"
+                    : "PASSED"
+                  : isTagalog
+                    ? "HINDI NAIPASA"
+                    : "NOT PASSED"}
+              </span>
+
+              <span className="text-sm text-gray-500">
+                {isTagalog
+                  ? "Pamantayan sa pagpasa: 75%"
+                  : "Passing requirement: 75%"}
+              </span>
             </div>
           </div>
         </div>
 
+        {/* Incorrect answers */}
         {incorrectAnswers.length === 0 ? (
           <div className="rounded-3xl border border-green-100 bg-white p-8 text-center shadow-lg sm:p-12">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
@@ -397,7 +545,9 @@ export default function AlphabetChampionshipSummary() {
             </div>
 
             <h2 className="text-2xl font-extrabold text-gray-800">
-              {isTagalog ? "Perpektong Iskor!" : "Perfect Score!"}
+              {isTagalog
+                ? "Perpektong Iskor!"
+                : "Perfect Score!"}
             </h2>
 
             <p className="mx-auto mt-3 max-w-md text-gray-600">
@@ -408,6 +558,7 @@ export default function AlphabetChampionshipSummary() {
           </div>
         ) : (
           <section>
+
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-100">
                 <XCircle className="h-6 w-6 text-red-600" />
@@ -415,8 +566,11 @@ export default function AlphabetChampionshipSummary() {
 
               <div>
                 <h2 className="text-xl font-bold text-gray-800">
-                  {isTagalog ? "Mga Sagot na Mali" : "Incorrect Answers"}
+                  {isTagalog
+                    ? "Mga Sagot na Mali"
+                    : "Incorrect Answers"}
                 </h2>
+
                 <p className="text-sm text-gray-500">
                   {isTagalog
                     ? "Ito ang mga titik na kailangan mong balikan."
@@ -431,6 +585,8 @@ export default function AlphabetChampionshipSummary() {
                   key={item.question.id}
                   className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md"
                 >
+
+                  {/* Question number */}
                   <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-4">
                     <span className="font-semibold text-gray-700">
                       {isTagalog ? "Tanong" : "Question"}{" "}
@@ -439,39 +595,61 @@ export default function AlphabetChampionshipSummary() {
 
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
                       <XCircle size={14} />
+
                       {isTagalog ? "Mali" : "Incorrect"}
                     </span>
                   </div>
 
                   <div className="p-5 sm:p-6">
+
+                    {/* Question text */}
                     <p className="mb-5 font-medium leading-relaxed text-gray-700">
                       {isTagalog
                         ? item.question.question_tl
                         : item.question.question_en}
                     </p>
 
+                    {/* Letter */}
+                    <div className="mb-5 flex justify-center">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-3xl font-extrabold text-indigo-700">
+                        {item.question.letter}
+                      </div>
+                    </div>
+
+                    {/* Answer comparison */}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+                      {/* User's answer */}
                       <div className="rounded-xl border border-red-200 bg-red-50 p-4">
                         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-red-700">
                           <XCircle size={17} />
-                          {isTagalog ? "Iyong Sagot" : "Your Answer"}
+
+                          {isTagalog
+                            ? "Iyong Sagot"
+                            : "Your Answer"}
                         </div>
 
-                        <p className="text-3xl font-extrabold text-red-700">
+                        <p className="text-2xl font-extrabold text-red-700 break-words">
                           {item.answer.selected_answer}
                         </p>
                       </div>
 
+                      {/* Correct answer */}
                       <div className="rounded-xl border border-green-200 bg-green-50 p-4">
                         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-green-700">
                           <CheckCircle2 size={17} />
-                          {isTagalog ? "Tamang Sagot" : "Correct Answer"}
+
+                          {isTagalog
+                            ? "Tamang Sagot"
+                            : "Correct Answer"}
                         </div>
 
-                        <p className="text-3xl font-extrabold text-green-700">
-                          {item.question.answer}
+                        <p className="text-2xl font-extrabold text-green-700 break-words">
+                          {item.answer.correct_answer ||
+                            item.question.answer}
                         </p>
                       </div>
+
                     </div>
                   </div>
                 </article>
@@ -480,24 +658,42 @@ export default function AlphabetChampionshipSummary() {
           </section>
         )}
 
+        {/* Bottom navigation */}
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+
           <button
             onClick={handleBack}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
           >
             <ArrowLeft size={18} />
-            {isTagalog ? "Bumalik sa Resulta" : "Back to Results"}
+
+            {isTagalog
+              ? "Bumalik sa Resulta"
+              : "Back to Results"}
           </button>
 
-          {percentage < 75 && (
-            <button
-              onClick={handleTryAgain}
-              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 font-semibold text-white shadow-md transition hover:bg-indigo-700"
-            >
-              <RotateCcw size={18} />
-              {isTagalog ? "Subukan Muli" : "Try Again"}
-            </button>
-          )}
+          <button
+            onClick={handleTryAgain}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 font-semibold text-white shadow-md transition hover:bg-indigo-700"
+          >
+            <RotateCcw size={18} />
+
+            {isTagalog
+              ? "Subukan Muli"
+              : "Try Again"}
+          </button>
+
+          <button
+            onClick={handleExit}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-100 px-6 py-3.5 font-semibold text-gray-700 transition hover:bg-gray-200"
+          >
+            <LogOut size={18} />
+
+            {isTagalog
+              ? "Lumabas"
+              : "Exit"}
+          </button>
+
         </div>
       </div>
     </div>
