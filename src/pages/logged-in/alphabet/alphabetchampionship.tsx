@@ -52,43 +52,58 @@ const VIDEO_URL = "/videos/FSLalphabet.mp4";
 
 const TOTAL_QUESTIONS = 26;
 const PASSING_PERCENTAGE = 75;
+
 const PASSING_SCORE = Math.ceil(
   (TOTAL_QUESTIONS * PASSING_PERCENTAGE) / 100
 );
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
+/*
+ * Corrected timestamps based on the uploaded FSLalphabet.mp4.
+ *
+ * Each question retrieves its video segment using its letter.
+ * Randomizing question order does not change these mappings.
+ */
 const ALPHABET_TIMESTAMPS: Record<
   string,
   { start: number; end: number }
 > = {
-  A: { start: 5, end: 7 },
-  B: { start: 8, end: 10 },
-  C: { start: 11, end: 13 },
-  D: { start: 13, end: 15 },
-  E: { start: 15, end: 17 },
-  F: { start: 18, end: 20 },
-  G: { start: 20, end: 22 },
-  H: { start: 22, end: 24 },
-  I: { start: 24, end: 25 },
-  J: { start: 25, end: 27 },
-  K: { start: 28, end: 29 },
-  L: { start: 30, end: 31 },
-  M: { start: 32, end: 34 },
-  N: { start: 34, end: 36 },
-  O: { start: 37, end: 39 },
-  P: { start: 39, end: 41 },
-  Q: { start: 41, end: 43 },
-  R: { start: 43, end: 45 },
-  S: { start: 45, end: 47 },
-  T: { start: 47, end: 49 },
-  U: { start: 50, end: 52 },
-  V: { start: 52, end: 53 },
-  W: { start: 54, end: 55 },
-  X: { start: 56, end: 57 },
-  Y: { start: 58, end: 59 },
-  Z: { start: 60, end: 63 },
+  A: { start: 5.50, end: 8.25 },
+  B: { start: 8.25, end: 10.75 },
+  C: { start: 10.75, end: 13.00 },
+  D: { start: 13.00, end: 15.50 },
+  E: { start: 15.50, end: 17.75 },
+  F: { start: 17.75, end: 20.00 },
+  G: { start: 20.00, end: 22.25 },
+  H: { start: 22.25, end: 24.25 },
+  I: { start: 24.25, end: 25.75 },
+  J: { start: 25.75, end: 28.00 },
+  K: { start: 28.00, end: 30.00 },
+  L: { start: 30.00, end: 32.50 },
+  M: { start: 32.50, end: 34.75 },
+  N: { start: 34.75, end: 36.75 },
+  O: { start: 36.75, end: 39.25 },
+  P: { start: 39.25, end: 41.50 },
+  Q: { start: 41.50, end: 43.25 },
+  R: { start: 43.25, end: 45.50 },
+  S: { start: 45.50, end: 47.75 },
+  T: { start: 47.75, end: 50.00 },
+  U: { start: 50.00, end: 52.25 },
+  V: { start: 52.25, end: 54.25 },
+  W: { start: 54.25, end: 56.25 },
+  X: { start: 56.25, end: 58.25 },
+  Y: { start: 58.25, end: 60.00 },
+  Z: { start: 60.00, end: 63.25 },
 };
+
+/*
+ * Small playback buffer.
+ *
+ * Stops slightly before the next segment begins so the next
+ * letter does not accidentally appear in the current question.
+ */
+const VIDEO_END_BUFFER = 0.05;
 
 /* Fisher-Yates shuffle. */
 const shuffleArray = <T,>(array: T[]): T[] => {
@@ -97,14 +112,19 @@ const shuffleArray = <T,>(array: T[]): T[] => {
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
 
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    [shuffled[i], shuffled[j]] = [
+      shuffled[j],
+      shuffled[i],
+    ];
   }
 
   return shuffled;
 };
 
-/* Creates a new shuffled Championship question set.
-   Existing attempts always use their saved question order. */
+/*
+ * Creates a new shuffled Championship question set.
+ * Existing attempts always use their saved question order.
+ */
 const createChampionshipQuestions = (): ChampionshipQuestion[] => {
   const shuffledLetters = shuffleArray(ALPHABET);
 
@@ -113,7 +133,10 @@ const createChampionshipQuestions = (): ChampionshipQuestion[] => {
       ALPHABET.filter((item) => item !== letter)
     ).slice(0, 3);
 
-    const options = shuffleArray([letter, ...distractors]);
+    const options = shuffleArray([
+      letter,
+      ...distractors,
+    ]);
 
     return {
       id: `championship-${letter}`,
@@ -121,18 +144,23 @@ const createChampionshipQuestions = (): ChampionshipQuestion[] => {
       answer: letter,
       options,
       question_en: "Which letter matches this FSL sign?",
-      question_tl: "Anong titik ang ipinapakita sa senyas na ito?",
+      question_tl:
+        "Anong titik ang ipinapakita sa senyas na ito?",
     };
   });
 };
 
-const normalizeQuestions = (value: unknown): ChampionshipQuestion[] => {
+const normalizeQuestions = (
+  value: unknown
+): ChampionshipQuestion[] => {
   if (!Array.isArray(value)) return [];
 
   return value as ChampionshipQuestion[];
 };
 
-const normalizeAnswers = (value: unknown): ChampionshipAnswer[] => {
+const normalizeAnswers = (
+  value: unknown
+): ChampionshipAnswer[] => {
   if (!Array.isArray(value)) return [];
 
   return value as ChampionshipAnswer[];
@@ -140,31 +168,59 @@ const normalizeAnswers = (value: unknown): ChampionshipAnswer[] => {
 
 export default function Championship() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
 
-  // Use the same authentication context as the other alphabet pages.
+  const { language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
 
   const isTagalog = language === "tl";
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
   const loadingRef = useRef(false);
   const savingRef = useRef(false);
   const initializedRef = useRef(false);
+
+  const playbackCleanupRef = useRef<(() => void) | null>(
+    null
+  );
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [attemptId, setAttemptId] = useState<string | null>(null);
-  const [questions, setQuestions] = useState<ChampionshipQuestion[]>([]);
-  const [answers, setAnswers] = useState<ChampionshipAnswer[]>([]);
+  const [attemptId, setAttemptId] = useState<string | null>(
+    null
+  );
 
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<
+    ChampionshipQuestion[]
+  >([]);
+
+  const [answers, setAnswers] = useState<
+    ChampionshipAnswer[]
+  >([]);
+
+  const [selectedAnswer, setSelectedAnswer] = useState<
+    string | null
+  >(null);
+
   const [showFeedback, setShowFeedback] = useState(false);
-  const [videoEnded, setVideoEnded] = useState(false);
 
-  const currentQuestionIndex = answers.length;
+  /*
+   * IMPORTANT QUESTION INDEX FIX
+   *
+   * When an answer is saved, answers.length increases.
+   *
+   * While feedback is displayed, subtract one so the
+   * component continues displaying the question that
+   * was just answered.
+   *
+   * When Next is clicked, showFeedback becomes false,
+   * allowing the component to display the next question.
+   */
+  const currentQuestionIndex = showFeedback
+    ? answers.length - 1
+    : answers.length;
 
   const currentQuestion = useMemo(() => {
     if (
@@ -177,18 +233,26 @@ export default function Championship() {
     return questions[currentQuestionIndex];
   }, [questions, currentQuestionIndex]);
 
+  /*
+   * The video segment is always determined by the
+   * letter belonging to the active question.
+   */
   const currentTimestamp = currentQuestion
-    ? ALPHABET_TIMESTAMPS[currentQuestion.letter]
+    ? ALPHABET_TIMESTAMPS[currentQuestion.letter] ?? null
     : null;
 
   const score = useMemo(
-    () => answers.filter((answer) => answer.is_correct).length,
+    () =>
+      answers.filter((answer) => answer.is_correct).length,
     [answers]
   );
 
   const progressPercentage =
     questions.length > 0
-      ? Math.min((answers.length / questions.length) * 100, 100)
+      ? Math.min(
+          (answers.length / questions.length) * 100,
+          100
+        )
       : 0;
 
   const text = {
@@ -207,8 +271,14 @@ export default function Championship() {
       : "Which letter matches this FSL sign?",
 
     questionCount: isTagalog
-      ? `Tanong ${Math.min(answers.length + 1, TOTAL_QUESTIONS)} sa ${TOTAL_QUESTIONS}`
-      : `Question ${Math.min(answers.length + 1, TOTAL_QUESTIONS)} of ${TOTAL_QUESTIONS}`,
+      ? `Tanong ${Math.min(
+          answers.length + (showFeedback ? 0 : 1),
+          TOTAL_QUESTIONS
+        )} sa ${TOTAL_QUESTIONS}`
+      : `Question ${Math.min(
+          answers.length + (showFeedback ? 0 : 1),
+          TOTAL_QUESTIONS
+        )} of ${TOTAL_QUESTIONS}`,
 
     chooseAnswer: isTagalog
       ? "Piliin ang tamang titik."
@@ -216,11 +286,17 @@ export default function Championship() {
 
     correct: isTagalog ? "Tama ang sagot!" : "Correct answer!",
 
-    incorrect: isTagalog ? "Hindi ito ang tamang sagot." : "Not quite!",
+    incorrect: isTagalog
+      ? "Hindi ito ang tamang sagot."
+      : "Not quite!",
 
-    correctAnswer: isTagalog ? "Tamang sagot:" : "Correct answer:",
+    correctAnswer: isTagalog
+      ? "Tamang sagot:"
+      : "Correct answer:",
 
-    watchAgain: isTagalog ? "PANOORIN MULI" : "WATCH AGAIN",
+    watchAgain: isTagalog
+      ? "PANOORIN MULI"
+      : "WATCH AGAIN",
 
     next: isTagalog ? "SUSUNOD" : "NEXT",
 
@@ -238,7 +314,9 @@ export default function Championship() {
       ? "May nangyaring problema"
       : "Something went wrong",
 
-    retryLoading: isTagalog ? "SUBUKAN MULI" : "TRY AGAIN",
+    retryLoading: isTagalog
+      ? "SUBUKAN MULI"
+      : "TRY AGAIN",
 
     loadingAttempt: isTagalog
       ? "Binubuksan ang iyong kasalukuyang pagsusulit..."
@@ -258,6 +336,231 @@ export default function Championship() {
   };
 
   /* ---------------------------------------------------------
+     VIDEO SEEKING AND PLAYBACK
+  --------------------------------------------------------- */
+
+  /*
+   * Seeks to the requested timestamp and waits until
+   * the browser finishes seeking before starting playback.
+   *
+   * Returns a cleanup function to prevent outdated
+   * playback operations from running after a question changes.
+   */
+  const seekAndPlaySegment = useCallback(
+    (
+      startTime: number,
+      onPlaybackError?: (error: unknown) => void
+    ) => {
+      const video = videoRef.current;
+
+      if (!video) return () => {};
+
+      let cancelled = false;
+
+      let seekedHandler: (() => void) | null = null;
+      let metadataHandler: (() => void) | null = null;
+
+      const removeSeekedHandler = () => {
+        if (seekedHandler) {
+          video.removeEventListener(
+            "seeked",
+            seekedHandler
+          );
+
+          seekedHandler = null;
+        }
+      };
+
+      const startPlayback = () => {
+        if (cancelled) return;
+
+        const playPromise = video.play();
+
+        if (playPromise !== undefined) {
+          playPromise.catch((playError) => {
+            if (!cancelled) {
+              console.error(
+                "Championship video playback error:",
+                playError
+              );
+
+              onPlaybackError?.(playError);
+            }
+          });
+        }
+      };
+
+      const performSeek = () => {
+        if (cancelled) return;
+
+        video.pause();
+
+        removeSeekedHandler();
+
+        const targetTime = startTime;
+
+        seekedHandler = () => {
+          removeSeekedHandler();
+
+          if (!cancelled) {
+            startPlayback();
+          }
+        };
+
+        video.addEventListener(
+          "seeked",
+          seekedHandler,
+          { once: true }
+        );
+
+        video.currentTime = targetTime;
+
+        /*
+         * If the browser is already at the requested
+         * position, a seeked event may not be necessary.
+         */
+        if (
+          !video.seeking &&
+          Math.abs(video.currentTime - targetTime) < 0.05
+        ) {
+          removeSeekedHandler();
+          startPlayback();
+        }
+      };
+
+      if (video.readyState >= 1) {
+        performSeek();
+      } else {
+        metadataHandler = () => {
+          metadataHandler = null;
+
+          if (!cancelled) {
+            performSeek();
+          }
+        };
+
+        video.addEventListener(
+          "loadedmetadata",
+          metadataHandler,
+          { once: true }
+        );
+      }
+
+      return () => {
+        cancelled = true;
+
+        removeSeekedHandler();
+
+        if (metadataHandler) {
+          video.removeEventListener(
+            "loadedmetadata",
+            metadataHandler
+          );
+
+          metadataHandler = null;
+        }
+
+        video.pause();
+      };
+    },
+    []
+  );
+
+  /*
+   * Automatically play the correct segment whenever
+   * the active question changes.
+   */
+  useEffect(() => {
+    if (
+      !currentQuestion ||
+      !currentTimestamp ||
+      loading
+    ) {
+      return;
+    }
+
+    const cleanup = seekAndPlaySegment(
+      currentTimestamp.start,
+      () => {
+        setError(text.videoUnavailable);
+      }
+    );
+
+    playbackCleanupRef.current = cleanup;
+
+    return () => {
+      cleanup();
+
+      if (playbackCleanupRef.current === cleanup) {
+        playbackCleanupRef.current = null;
+      }
+    };
+  }, [
+    currentQuestion,
+    currentTimestamp,
+    loading,
+    seekAndPlaySegment,
+    text.videoUnavailable,
+  ]);
+
+  /*
+   * Stop playback before the next letter's segment begins.
+   */
+  const handleVideoTimeUpdate = () => {
+    const video = videoRef.current;
+
+    if (!video || !currentTimestamp) return;
+
+    const playbackEnd =
+      currentTimestamp.end - VIDEO_END_BUFFER;
+
+    if (video.currentTime >= playbackEnd) {
+      video.pause();
+
+      video.currentTime = Math.max(
+        currentTimestamp.start,
+        playbackEnd
+      );
+    }
+  };
+
+  const handleVideoError = () => {
+    setError(text.videoUnavailable);
+  };
+
+  /* ---------------------------------------------------------
+     WATCH THE CURRENT SIGN AGAIN
+  --------------------------------------------------------- */
+
+  const playCurrentSegment = useCallback(() => {
+    if (!currentTimestamp) return;
+
+    /*
+     * Cancel any previous playback operation before
+     * replaying the active segment.
+     */
+    playbackCleanupRef.current?.();
+
+    const cleanup = seekAndPlaySegment(
+      currentTimestamp.start,
+      () => {
+        setError(text.videoUnavailable);
+      }
+    );
+
+    playbackCleanupRef.current = cleanup;
+  }, [
+    currentTimestamp,
+    seekAndPlaySegment,
+    text.videoUnavailable,
+  ]);
+
+  const handleWatchAgain = () => {
+    setError("");
+    playCurrentSegment();
+  };
+
+  /* ---------------------------------------------------------
      COMPLETE AN ATTEMPT
   --------------------------------------------------------- */
 
@@ -270,7 +573,7 @@ export default function Championship() {
         (answer) => answer.is_correct
       ).length;
 
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from("alphabet_assessment_attempts")
         .update({
           answers: finalAnswers,
@@ -282,10 +585,15 @@ export default function Championship() {
         .eq("id", id)
         .eq("assessment_type", "championship")
         .eq("part_key", "3")
-        .eq("status", "in_progress");
+        .eq("status", "in_progress")
+        .select("id")
+        .maybeSingle();
 
-      if (updateError) {
-        console.error("Championship completion error:", updateError);
+      if (updateError || !data) {
+        console.error(
+          "Championship completion error:",
+          updateError
+        );
 
         setError(
           isTagalog
@@ -296,7 +604,9 @@ export default function Championship() {
         return;
       }
 
-      navigate(`/alphabetcomplete?attempt=${encodeURIComponent(id)}`);
+      navigate(
+        `/alphabetcomplete?attempt=${encodeURIComponent(id)}`
+      );
     },
     [navigate, isTagalog]
   );
@@ -306,18 +616,14 @@ export default function Championship() {
   --------------------------------------------------------- */
 
   const loadChampionship = useCallback(async () => {
-    // Wait until the shared authentication context finishes loading.
     if (authLoading || loadingRef.current) return;
 
     loadingRef.current = true;
+
     setLoading(true);
     setError("");
 
     try {
-      /*
-       * Use the authenticated user supplied by AuthContext.
-       * Do not independently request the Supabase user here.
-       */
       if (!user) {
         throw new Error(
           isTagalog
@@ -329,21 +635,21 @@ export default function Championship() {
       const userId = user.id;
 
       /*
-       * Find the learner's latest unfinished Championship attempt.
-       * This allows the learner to continue after leaving,
-       * refreshing, or reopening the page.
+       * Retrieve the latest unfinished Championship attempt.
        */
-      const { data: existingAttempt, error: attemptError } =
-        await supabase
-          .from("alphabet_assessment_attempts")
-          .select("*")
-          .eq("user_id", userId)
-          .eq("assessment_type", "championship")
-          .eq("part_key", "3")
-          .eq("status", "in_progress")
-          .order("started_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      const {
+        data: existingAttempt,
+        error: attemptError,
+      } = await supabase
+        .from("alphabet_assessment_attempts")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("assessment_type", "championship")
+        .eq("part_key", "3")
+        .eq("status", "in_progress")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (attemptError) {
         throw attemptError;
@@ -356,7 +662,9 @@ export default function Championship() {
           existingAttempt.questions
         );
 
-        const savedAnswers = normalizeAnswers(existingAttempt.answers);
+        const savedAnswers = normalizeAnswers(
+          existingAttempt.answers
+        );
 
         if (
           savedQuestions.length !== TOTAL_QUESTIONS ||
@@ -377,26 +685,29 @@ export default function Championship() {
       } else {
         /*
          * No unfinished attempt exists.
-         * Create a new shuffled set of all 26 letters.
+         * Generate a new randomized question set.
          */
-        const newQuestions = createChampionshipQuestions();
+        const newQuestions =
+          createChampionshipQuestions();
 
-        const { data: insertedAttempt, error: insertError } =
-          await supabase
-            .from("alphabet_assessment_attempts")
-            .insert({
-              user_id: userId,
-              assessment_type: "championship",
-              part_key: "3",
-              checkpoint_number: null,
-              questions: newQuestions,
-              answers: [],
-              score: null,
-              total_questions: TOTAL_QUESTIONS,
-              status: "in_progress",
-            })
-            .select("*")
-            .single();
+        const {
+          data: insertedAttempt,
+          error: insertError,
+        } = await supabase
+          .from("alphabet_assessment_attempts")
+          .insert({
+            user_id: userId,
+            assessment_type: "championship",
+            part_key: "3",
+            checkpoint_number: null,
+            questions: newQuestions,
+            answers: [],
+            score: null,
+            total_questions: TOTAL_QUESTIONS,
+            status: "in_progress",
+          })
+          .select("*")
+          .single();
 
         if (insertError) {
           throw insertError;
@@ -404,8 +715,12 @@ export default function Championship() {
 
         activeAttempt = {
           ...insertedAttempt,
-          questions: normalizeQuestions(insertedAttempt.questions),
-          answers: normalizeAnswers(insertedAttempt.answers),
+          questions: normalizeQuestions(
+            insertedAttempt.questions
+          ),
+          answers: normalizeAnswers(
+            insertedAttempt.answers
+          ),
         } as AssessmentAttempt;
       }
 
@@ -414,8 +729,17 @@ export default function Championship() {
       setAnswers(activeAttempt.answers);
 
       /*
-       * If all 26 answers were saved but the learner left before
-       * completing the attempt, complete it automatically.
+       * Restore the first unanswered question.
+       *
+       * Feedback is intentionally not restored after returning.
+       * The next unanswered question will be displayed.
+       */
+      setSelectedAnswer(null);
+      setShowFeedback(false);
+
+      /*
+       * If all 26 answers were saved but the attempt
+       * remained in_progress, complete it automatically.
        */
       if (
         activeAttempt.answers.length === TOTAL_QUESTIONS &&
@@ -427,7 +751,10 @@ export default function Championship() {
         );
       }
     } catch (loadError) {
-      console.error("Error loading Championship:", loadError);
+      console.error(
+        "Error loading Championship:",
+        loadError
+      );
 
       setError(
         loadError instanceof Error
@@ -447,88 +774,16 @@ export default function Championship() {
   ]);
 
   /*
-   * Initialize only after AuthContext finishes checking the session.
-   * This prevents the page from treating a still-loading user as logged out.
+   * Initialize only after AuthContext finishes loading.
    */
   useEffect(() => {
     if (authLoading) return;
     if (initializedRef.current) return;
 
     initializedRef.current = true;
+
     void loadChampionship();
   }, [authLoading, loadChampionship]);
-
-  /* ---------------------------------------------------------
-     VIDEO PLAYBACK
-  --------------------------------------------------------- */
-
-  const playCurrentSegment = useCallback(() => {
-    const video = videoRef.current;
-
-    if (!video || !currentTimestamp) return;
-
-    setVideoEnded(false);
-
-    video.currentTime = currentTimestamp.start;
-
-    const playPromise = video.play();
-
-    if (playPromise !== undefined) {
-      playPromise.catch((playError) => {
-        console.error("Video playback error:", playError);
-      });
-    }
-  }, [currentTimestamp]);
-
-  useEffect(() => {
-    if (!currentQuestion || !currentTimestamp || loading) return;
-
-    const video = videoRef.current;
-
-    if (!video) return;
-
-    const startPlayback = () => {
-      video.currentTime = currentTimestamp.start;
-      setVideoEnded(false);
-
-      const playPromise = video.play();
-
-      if (playPromise !== undefined) {
-        playPromise.catch((playError) => {
-          console.error("Video playback error:", playError);
-        });
-      }
-    };
-
-    if (video.readyState >= 1) {
-      startPlayback();
-    } else {
-      video.addEventListener("loadedmetadata", startPlayback, {
-        once: true,
-      });
-    }
-
-    return () => {
-      video.removeEventListener("loadedmetadata", startPlayback);
-      video.pause();
-    };
-  }, [currentQuestion, currentTimestamp, loading]);
-
-  const handleVideoTimeUpdate = () => {
-    const video = videoRef.current;
-
-    if (!video || !currentTimestamp) return;
-
-    if (video.currentTime >= currentTimestamp.end) {
-      video.pause();
-      video.currentTime = currentTimestamp.end;
-      setVideoEnded(true);
-    }
-  };
-
-  const handleVideoError = () => {
-    setError(text.videoUnavailable);
-  };
 
   /* ---------------------------------------------------------
      SAVE EACH ANSWER
@@ -546,6 +801,7 @@ export default function Championship() {
     }
 
     savingRef.current = true;
+
     setSaving(true);
     setError("");
 
@@ -560,13 +816,14 @@ export default function Championship() {
       answered_at: new Date().toISOString(),
     };
 
-    const updatedAnswers = [...answers, newAnswer];
+    const updatedAnswers = [
+      ...answers,
+      newAnswer,
+    ];
 
     try {
       /*
-       * Save the answer immediately.
-       * The answers array identifies the next unanswered question
-       * when the learner returns to the page.
+       * Persist the answer immediately.
        */
       const { error: saveError } = await supabase
         .from("alphabet_assessment_attempts")
@@ -583,11 +840,19 @@ export default function Championship() {
         throw saveError;
       }
 
+      /*
+       * The active question remains unchanged because
+       * currentQuestionIndex subtracts one while feedback
+       * is visible.
+       */
       setAnswers(updatedAnswers);
       setSelectedAnswer(option);
       setShowFeedback(true);
     } catch (saveError) {
-      console.error("Error saving Championship answer:", saveError);
+      console.error(
+        "Error saving Championship answer:",
+        saveError
+      );
 
       setError(
         isTagalog
@@ -605,24 +870,32 @@ export default function Championship() {
   --------------------------------------------------------- */
 
   const handleNext = async () => {
-    if (savingRef.current || saving || !attemptId) return;
+    if (
+      savingRef.current ||
+      saving ||
+      !attemptId ||
+      !showFeedback
+    ) {
+      return;
+    }
 
+    /*
+     * Finish only after the final question's feedback
+     * has been displayed.
+     */
     if (answers.length === TOTAL_QUESTIONS) {
       await completeAttempt(attemptId, answers);
       return;
     }
 
+    /*
+     * Advancing removes feedback mode.
+     * currentQuestionIndex now becomes answers.length,
+     * which is the next unanswered question.
+     */
     setSelectedAnswer(null);
     setShowFeedback(false);
-    setVideoEnded(false);
-  };
-
-  /* ---------------------------------------------------------
-     WATCH THE CURRENT SIGN AGAIN
-  --------------------------------------------------------- */
-
-  const handleWatchAgain = () => {
-    playCurrentSegment();
+    setError("");
   };
 
   /* ---------------------------------------------------------
@@ -659,13 +932,16 @@ export default function Championship() {
             {text.errorTitle}
           </h2>
 
-          <p className="text-[#806452] mb-6">{error}</p>
+          <p className="text-[#806452] mb-6">
+            {error}
+          </p>
 
           <button
             onClick={() => {
               if (loadingRef.current) return;
 
               initializedRef.current = false;
+
               void loadChampionship();
             }}
             className="w-full rounded-xl bg-orange-500 px-6 py-3 font-bold text-white hover:bg-orange-600 transition"
@@ -695,6 +971,7 @@ export default function Championship() {
   return (
     <div className="min-h-screen bg-[#fff8ed] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-5xl">
+
         {/* HEADER */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <button
@@ -707,6 +984,7 @@ export default function Championship() {
 
           <div className="flex items-center gap-2 rounded-full bg-yellow-100 px-4 py-2 text-yellow-800">
             <Award size={20} />
+
             <span className="font-extrabold tracking-wide">
               {text.title}
             </span>
@@ -739,13 +1017,17 @@ export default function Championship() {
           <div className="h-3 w-full overflow-hidden rounded-full bg-orange-100">
             <div
               className="h-full rounded-full bg-gradient-to-r from-orange-400 to-yellow-400 transition-all duration-500"
-              style={{ width: `${progressPercentage}%` }}
+              style={{
+                width: `${progressPercentage}%`,
+              }}
             />
           </div>
 
           <div className="mt-3 flex items-center justify-between text-xs sm:text-sm text-[#9a7b67]">
             <span>
-              {isTagalog ? "Tamang sagot" : "Correct answers"}: {score}
+              {isTagalog
+                ? "Tamang sagot"
+                : "Correct answers"}: {score}
             </span>
 
             <span>
@@ -758,6 +1040,7 @@ export default function Championship() {
 
         {/* QUESTION CARD */}
         <div className="rounded-3xl bg-white p-4 sm:p-7 shadow-xl border border-orange-100">
+
           <div className="text-center mb-5">
             <span className="inline-block rounded-full bg-orange-100 px-4 py-1.5 text-xs sm:text-sm font-extrabold tracking-wider text-orange-700">
               CHAMPIONSHIP TEST
@@ -805,10 +1088,12 @@ export default function Championship() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {currentQuestion.options.map((option) => {
-                const isSelected = selectedAnswer === option;
+                const isSelected =
+                  selectedAnswer === option;
 
                 const isCorrectOption =
-                  showFeedback && option === currentQuestion.answer;
+                  showFeedback &&
+                  option === currentQuestion.answer;
 
                 const isWrongSelection =
                   showFeedback &&
@@ -822,7 +1107,8 @@ export default function Championship() {
                   optionClass =
                     "border-green-500 bg-green-100 text-green-800";
                 } else if (isWrongSelection) {
-                  optionClass = "border-red-400 bg-red-100 text-red-800";
+                  optionClass =
+                    "border-red-400 bg-red-100 text-red-800";
                 } else if (isSelected) {
                   optionClass =
                     "border-orange-500 bg-orange-100 text-orange-800";
@@ -887,7 +1173,11 @@ export default function Championship() {
           {/* SAVE STATUS / ERROR */}
           {saving && (
             <div className="mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-orange-600">
-              <Loader2 size={17} className="animate-spin" />
+              <Loader2
+                size={17}
+                className="animate-spin"
+              />
+
               {text.saving}
             </div>
           )}

@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
+import AlphabetChampionshipSummary from "./pages/logged-in/alphabet/alphabetchampionshipsummary";
 
 // =========================================================
 // AUTHENTICATION PAGES
@@ -175,8 +176,8 @@ function App() {
                             />
 
                             <Route
-                                path="/alphabetquiz"
-                                element={<AlphabetQuiz />}
+                                path="/championshipsummary"
+                                element={<AlphabetChampionshipSummary />}
                             />
 
                             <Route
