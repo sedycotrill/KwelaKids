@@ -21,3 +21,16 @@ export function getLearnerName(user: User | null): string {
 
   return "Learner";
 }
+
+// Friendly name for greetings.
+export function getFirstName(user: User | null): string {
+  const fullName = getLearnerName(user);
+
+  // Names saved as "Last, First M." keep the part after the comma
+  const givenNames = fullName.includes(",") ? fullName.split(",")[1] : fullName;
+
+  // Drop a trailing middle initial like "G." or "G"
+  const cleaned = givenNames.replace(/\s+[A-Za-z]\.?$/, "").trim();
+
+  return cleaned || fullName;
+}

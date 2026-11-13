@@ -19,7 +19,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useAuth } from "../../context/AuthContext";
 
 import { supabase } from "../../lib/supabase";
-import { getLearnerName } from "../../lib/getLearnerName";
+import { getFirstName } from "../../lib/getLearnerName";
 
 // Shared "chunky 3D" button look: big tap target, presses down when clicked
 const chunkyButton =
@@ -37,7 +37,7 @@ export default function Header() {
   const { language, toggleLanguage } = useLanguage();
   const { user } = useAuth();
 
-  const learnerName = getLearnerName(user);
+  const learnerName = getFirstName(user);
   const isTagalog = language === "tl";
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -196,12 +196,10 @@ export default function Header() {
                 onClick={() => setIsDropdownOpen((previous) => !previous)}
                 aria-expanded={isDropdownOpen}
                 aria-haspopup="menu"
+                aria-label={isTagalog ? "Buksan ang menu" : "Open menu"}
                 className={`${chunkyButton} border-sky-300 bg-sky-100 text-sky-800 hover:bg-sky-200`}
               >
                 <CircleUserRound size={22} className="shrink-0" />
-                <span className="hidden max-w-48 truncate lg:inline">
-                  {isTagalog ? `Kamusta, ${learnerName}!` : `Hi, ${learnerName}!`}
-                </span>
                 <ChevronDown
                   size={16}
                   className={`shrink-0 transition-transform duration-200 ${
@@ -216,9 +214,11 @@ export default function Header() {
                   role="menu"
                   className="absolute right-0 z-40 mt-3 w-60 max-w-[calc(100vw-1rem)] origin-top-right animate-in rounded-3xl border-2 border-sky-100 bg-white p-3 shadow-xl fade-in zoom-in-95 duration-150"
                 >
-                  <p className="flex items-center justify-center gap-2 px-3 pb-2 pt-1 text-center text-sm font-extrabold text-sky-800 lg:hidden">
-                    <Hand size={16} aria-hidden="true" />
-                    {isTagalog ? `Kamusta, ${learnerName}!` : `Hi, ${learnerName}!`}
+                  <p className="mb-2 flex items-center justify-center gap-2 border-b border-sky-100 px-3 pb-3 pt-1 text-center text-sm font-extrabold text-sky-800">
+                    <Hand size={16} className="shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      {isTagalog ? `Kamusta, ${learnerName}!` : `Hi, ${learnerName}!`}
+                    </span>
                   </p>
 
                   <button

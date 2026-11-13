@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -179,10 +178,10 @@ export default function AlphabetChampionshipHistory() {
   // Loading state
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-6">
-        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
+        <Loader2 className="w-12 h-12 text-[#36A9F4] animate-spin mb-4" />
 
-        <p className="text-gray-600 font-medium">
+        <p className="text-[#164B9B] font-black">
           {isTagalog
             ? "Kinukuha ang iyong mga nakaraang record..."
             : "Loading your Championship history..."}
@@ -194,25 +193,26 @@ export default function AlphabetChampionshipHistory() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6">
-        <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl border border-gray-100 p-8 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-            <AlertCircle className="h-8 w-8 text-red-600" />
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-6">
+        <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl border border-[#B8DDF6] p-8 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100">
+            <AlertCircle className="h-8 w-8 text-rose-600" />
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-800 mb-3">
+          <h1 className="text-2xl font-black text-[#164B9B] mb-3">
             {isTagalog
               ? "Hindi Ma-load ang History"
               : "History Unavailable"}
           </h1>
 
-          <p className="text-gray-600 leading-relaxed mb-7">
+          <p className="text-slate-600 font-medium leading-relaxed mb-7">
             {error}
           </p>
 
           <button
+            type="button"
             onClick={handleBack}
-            className="w-full rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white transition hover:bg-indigo-700"
+            className="w-full rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-3.5 font-extrabold text-white transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
             {isTagalog
               ? "Bumalik sa Categories"
@@ -224,17 +224,22 @@ export default function AlphabetChampionshipHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-4xl">
+    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-4 py-8 sm:px-6">
+      
+      {/* Background decorative elements */}
+      <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
+      <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
+
+      <div className="relative z-10 mx-auto max-w-4xl">
 
         {/* Back button */}
         <button
+          type="button"
           onClick={handleBack}
-          className="mb-6 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-gray-600 transition hover:bg-white hover:text-indigo-700"
+          className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
         >
-          <ArrowLeft size={20} />
-
-          <span className="font-medium">
+          <ArrowLeft size={20} strokeWidth={2.5} />
+          <span>
             {isTagalog
               ? "Bumalik sa Categories"
               : "Back to Categories"}
@@ -242,20 +247,20 @@ export default function AlphabetChampionshipHistory() {
         </button>
 
         {/* Page header */}
-        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-xl border border-gray-100">
+        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
 
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-9 text-center text-white sm:px-10">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+          <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-6 py-9 text-center text-white sm:px-10">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
               <History size={34} />
             </div>
 
-            <h1 className="text-3xl font-extrabold sm:text-4xl">
+            <h1 className="text-3xl font-black sm:text-4xl">
               {isTagalog
                 ? "Mga Nakaraang Championship"
                 : "Championship History"}
             </h1>
 
-            <p className="mt-3 text-sm text-indigo-100 sm:text-base">
+            <p className="mt-2 text-sm text-sky-100 font-medium sm:text-base">
               {isTagalog
                 ? "Tingnan ang iyong mga nakaraang marka at resulta."
                 : "Review your previous scores and Championship results."}
@@ -265,50 +270,50 @@ export default function AlphabetChampionshipHistory() {
           {/* History statistics */}
           <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
 
-            <div className="rounded-2xl bg-indigo-50 p-5 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-                <BookOpen className="h-5 w-5 text-indigo-600" />
+            <div className="rounded-2xl bg-sky-50 border border-sky-100 p-5 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100">
+                <BookOpen className="h-5 w-5 text-[#36A9F4]" />
               </div>
 
-              <p className="text-sm font-medium text-indigo-600">
+              <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
                 {isTagalog
                   ? "Kabuuang Attempt"
                   : "Total Attempts"}
               </p>
 
-              <p className="mt-2 text-3xl font-extrabold text-indigo-800">
+              <p className="mt-2 text-3xl font-black text-[#164B9B]">
                 {records.length}
               </p>
             </div>
 
-            <div className="rounded-2xl bg-green-50 p-5 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-5 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
               </div>
 
-              <p className="text-sm font-medium text-green-700">
+              <p className="text-xs font-black text-emerald-700 uppercase tracking-wide">
                 {isTagalog
                   ? "Naipasa"
                   : "Passed"}
               </p>
 
-              <p className="mt-2 text-3xl font-extrabold text-green-700">
+              <p className="mt-2 text-3xl font-black text-emerald-700">
                 {records.filter(hasPassed).length}
               </p>
             </div>
 
-            <div className="rounded-2xl bg-red-50 p-5 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <XCircle className="h-5 w-5 text-red-600" />
+            <div className="rounded-2xl bg-rose-50 border border-rose-100 p-5 text-center">
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
+                <XCircle className="h-5 w-5 text-rose-600" />
               </div>
 
-              <p className="text-sm font-medium text-red-700">
+              <p className="text-xs font-black text-rose-700 uppercase tracking-wide">
                 {isTagalog
                   ? "Hindi Naipasa"
                   : "Not Passed"}
               </p>
 
-              <p className="mt-2 text-3xl font-extrabold text-red-700">
+              <p className="mt-2 text-3xl font-black text-rose-700">
                 {records.filter((record) => !hasPassed(record)).length}
               </p>
             </div>
@@ -321,45 +326,46 @@ export default function AlphabetChampionshipHistory() {
 
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 className="text-xl font-black text-[#164B9B]">
                 {isTagalog
                   ? "Iyong mga Record"
                   : "Your Records"}
               </h2>
 
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-0.5 text-sm font-medium text-slate-600">
                 {isTagalog
                   ? "Nakaayos mula sa pinakabago."
                   : "Sorted from newest to oldest."}
               </p>
             </div>
 
-            <span className="rounded-full bg-indigo-100 px-4 py-2 text-sm font-bold text-indigo-700">
+            <span className="rounded-full bg-sky-100 px-4 py-1.5 text-xs font-black text-[#164B9B]">
               {records.length} {isTagalog ? "Record" : "Records"}
             </span>
           </div>
 
           {records.length === 0 ? (
-            <div className="rounded-3xl border border-gray-100 bg-white px-6 py-12 text-center shadow-lg sm:px-12">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100">
-                <History className="h-10 w-10 text-indigo-500" />
+            <div className="rounded-3xl border border-[#B8DDF6] bg-white px-6 py-12 text-center shadow-sm sm:px-12">
+              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-sky-100">
+                <History className="h-10 w-10 text-[#36A9F4]" />
               </div>
 
-              <h3 className="text-2xl font-extrabold text-gray-800">
+              <h3 className="text-2xl font-black text-[#164B9B]">
                 {isTagalog
                   ? "Wala Pang Record"
                   : "No Previous Records"}
               </h3>
 
-              <p className="mx-auto mt-3 max-w-md text-gray-500">
+              <p className="mx-auto mt-2 max-w-md text-slate-600 font-medium">
                 {isTagalog
                   ? "Wala ka pang natapos na Championship attempt. Kumpletuhin ang iyong unang Championship upang makita rito ang iyong resulta."
                   : "You have not completed a Championship attempt yet. Finish your first Championship to see your results here."}
               </p>
 
               <button
+                type="button"
                 onClick={handleChampionship}
-                className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-7 py-3.5 font-semibold text-white shadow-md transition hover:bg-indigo-700"
+                className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-7 py-3.5 font-extrabold text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
               >
                 <Trophy size={18} />
 
@@ -377,7 +383,7 @@ export default function AlphabetChampionshipHistory() {
                 return (
                   <article
                     key={record.id}
-                    className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-md transition hover:shadow-lg"
+                    className="overflow-hidden rounded-3xl border border-[#B8DDF6] bg-white shadow-sm transition hover:shadow-md"
                   >
                     <div className="p-5 sm:p-6">
 
@@ -385,18 +391,18 @@ export default function AlphabetChampionshipHistory() {
                       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                         <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
-                            <Medal className="h-6 w-6 text-indigo-600" />
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E5D3FF] text-[#A45CE8]">
+                            <Medal className="h-6 w-6" />
                           </div>
 
                           <div>
-                            <h3 className="text-lg font-bold text-gray-800">
+                            <h3 className="text-lg font-black text-[#164B9B]">
                               {isTagalog
                                 ? `Attempt #${records.length - index}`
                                 : `Attempt #${records.length - index}`}
                             </h3>
 
-                            <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
+                            <div className="mt-0.5 flex items-center gap-2 text-sm font-medium text-slate-500">
                               <CalendarDays size={15} />
 
                               <span>
@@ -407,10 +413,10 @@ export default function AlphabetChampionshipHistory() {
                         </div>
 
                         <span
-                          className={`inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold ${
+                          className={`inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black ${
                             passed
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-rose-100 text-rose-700"
                           }`}
                         >
                           {passed ? (
@@ -433,29 +439,29 @@ export default function AlphabetChampionshipHistory() {
                       {/* Score and percentage */}
                       <div className="grid grid-cols-2 gap-3 mb-5">
 
-                        <div className="rounded-xl bg-indigo-50 p-4">
-                          <p className="text-xs font-semibold text-indigo-500">
+                        <div className="rounded-2xl bg-sky-50 border border-sky-100 p-4">
+                          <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
                             {isTagalog
                               ? "TAMANG SAGOT"
                               : "CORRECT ANSWERS"}
                           </p>
 
-                          <p className="mt-1 text-2xl font-extrabold text-indigo-800">
+                          <p className="mt-1 text-2xl font-black text-[#164B9B]">
                             {record.score}
-                            <span className="text-base font-semibold text-indigo-400">
+                            <span className="text-base font-extrabold text-sky-400">
                               /{record.total_questions}
                             </span>
                           </p>
                         </div>
 
-                        <div className="rounded-xl bg-purple-50 p-4">
-                          <p className="text-xs font-semibold text-purple-500">
+                        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4">
+                          <p className="text-xs font-black text-[#A45CE8] uppercase tracking-wide">
                             {isTagalog
                               ? "PORSYENTO"
                               : "PERCENTAGE"}
                           </p>
 
-                          <p className="mt-1 text-2xl font-extrabold text-purple-800">
+                          <p className="mt-1 text-2xl font-black text-[#A45CE8]">
                             {percentage}%
                           </p>
                         </div>
@@ -464,7 +470,7 @@ export default function AlphabetChampionshipHistory() {
 
                       {/* Score progress */}
                       <div className="mb-5">
-                        <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-500">
+                        <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-slate-500">
                           <span>
                             {isTagalog
                               ? "Iskor"
@@ -478,12 +484,12 @@ export default function AlphabetChampionshipHistory() {
                           </span>
                         </div>
 
-                        <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-3 overflow-hidden rounded-full bg-slate-100">
                           <div
                             className={`h-full rounded-full transition-all ${
                               passed
-                                ? "bg-gradient-to-r from-green-400 to-green-600"
-                                : "bg-gradient-to-r from-orange-400 to-red-500"
+                                ? "bg-emerald-500"
+                                : "bg-rose-500"
                             }`}
                             style={{
                               width: `${Math.min(
@@ -497,10 +503,11 @@ export default function AlphabetChampionshipHistory() {
 
                       {/* View summary */}
                       <button
+                        type="button"
                         onClick={() => handleViewSummary(record.id)}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white transition hover:bg-indigo-700 active:scale-[0.99]"
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 py-3.5 font-black text-white transition hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2"
                       >
-                        <BookOpen size={18} />
+                        <BookOpen size={18} strokeWidth={2.5} />
 
                         {isTagalog
                           ? "Tingnan ang Buod"
@@ -519,10 +526,11 @@ export default function AlphabetChampionshipHistory() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
 
           <button
+            type="button"
             onClick={handleBack}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3.5 font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-6 py-4 font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={20} strokeWidth={2.5} />
 
             {isTagalog
               ? "Bumalik sa Categories"
@@ -530,10 +538,11 @@ export default function AlphabetChampionshipHistory() {
           </button>
 
           <button
+            type="button"
             onClick={handleChampionship}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 font-semibold text-white shadow-md transition hover:bg-indigo-700"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-4 font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={20} strokeWidth={2.5} />
 
             {isTagalog
               ? "Pumunta sa Championship"
@@ -542,6 +551,6 @@ export default function AlphabetChampionshipHistory() {
 
         </div>
       </div>
-    </div>
+    </main>
   );
 }

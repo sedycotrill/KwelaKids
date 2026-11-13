@@ -19,7 +19,7 @@ const TAGALOG_TEXT: Record<string, { title: string; description: string }> = {
   },
   numbers: {
     title: "Mga Numero",
-    description: "Alamin kung paano i-sign ang 1 hanggang 10.",
+    description: "Alamin kung paano i-sign ang 1 hanggang 20.",
   },
   greetings: {
     title: "Mga Pagbati",

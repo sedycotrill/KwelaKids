@@ -1,5 +1,4 @@
 import type { Category } from "../types/category";
-
 import alphabetImage from "../assets/alphabet.svg";
 import numbersImage from "../assets/numbers.svg";
 import greetingsImage from "../assets/greetings.svg";
@@ -15,7 +14,7 @@ export const categories: Category[] = [
   {
     id: 2,
     title: "Numbers",
-    description: "Learn how to sign 1-10.",
+    description: "Learn how to sign 1-20.",
     image: numbersImage,
     theme: "green",
   },
