@@ -14,6 +14,11 @@ import logo from "../../assets/multipurposever.svg";
 
 import { supabase } from "../../lib/supabase";
 
+// =========================================================
+// REMEMBER ME SETTINGS
+// =========================================================
+
+const REMEMBERED_EMAIL_KEY = "kwelakids_remembered_email";
 
 // =========================================================
 // TYPES
@@ -38,15 +43,12 @@ type LoginResponse = {
     };
 };
 
-
 // =========================================================
 // COMPONENT
 // =========================================================
 
 export default function SignIn() {
-
     const navigate = useNavigate();
-
 
     // -----------------------------------------------------
     // FORM STATE
@@ -58,6 +60,27 @@ export default function SignIn() {
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
 
+    // -----------------------------------------------------
+    // LOAD REMEMBERED EMAIL
+    // -----------------------------------------------------
+
+    useEffect(() => {
+        try {
+            const savedEmail = localStorage.getItem(
+                REMEMBERED_EMAIL_KEY
+            );
+
+            if (savedEmail) {
+                setEmail(savedEmail);
+                setRememberMe(true);
+            }
+        } catch (error) {
+            console.warn(
+                "Unable to retrieve remembered email:",
+                error
+            );
+        }
+    }, []);
 
     // -----------------------------------------------------
     // ERROR STATE
@@ -73,7 +96,6 @@ export default function SignIn() {
         null
     );
 
-
     // -----------------------------------------------------
     // LOADING STATE
     // -----------------------------------------------------
@@ -81,22 +103,18 @@ export default function SignIn() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-
     // -----------------------------------------------------
     // COUNTDOWN STATE
     // -----------------------------------------------------
 
     const [currentTime, setCurrentTime] = useState(Date.now());
 
-
     useEffect(() => {
-
         if (!lockUntil) {
             return;
         }
 
         const updateCountdown = () => {
-
             const now = Date.now();
 
             setCurrentTime(now);
@@ -105,7 +123,6 @@ export default function SignIn() {
                 setLockUntil(null);
                 setLockMessage("");
             }
-
         };
 
         updateCountdown();
@@ -118,9 +135,7 @@ export default function SignIn() {
         return () => {
             window.clearInterval(interval);
         };
-
     }, [lockUntil]);
-
 
     const remainingSeconds = lockUntil
         ? Math.max(
@@ -131,9 +146,7 @@ export default function SignIn() {
         )
         : 0;
 
-
     const isLocked = remainingSeconds > 0;
-
 
     // -----------------------------------------------------
     // HANDLE LOGIN RESPONSES
@@ -142,9 +155,7 @@ export default function SignIn() {
     const handleLoginFailure = (
         response: LoginResponse
     ): boolean => {
-
         if (response.code === "ACCOUNT_LOCKED") {
-
             setEmailError("");
             setPasswordError("");
 
@@ -159,9 +170,7 @@ export default function SignIn() {
             return true;
         }
 
-
         if (response.code === "IP_RATE_LIMITED") {
-
             setEmailError("");
             setPasswordError("");
 
@@ -176,9 +185,7 @@ export default function SignIn() {
             return true;
         }
 
-
         if (response.code === "INVALID_CREDENTIALS") {
-
             setEmailError("Invalid email or password.");
             setPasswordError("Invalid email or password.");
 
@@ -187,10 +194,8 @@ export default function SignIn() {
             return true;
         }
 
-
         return false;
     };
-
 
     // -----------------------------------------------------
     // EMAIL AND PASSWORD SIGN-IN
@@ -199,20 +204,17 @@ export default function SignIn() {
     const handleSubmit = async (
         event: FormEvent<HTMLFormElement>
     ) => {
-
         event.preventDefault();
 
         setEmailError("");
         setPasswordError("");
         setGoogleError("");
 
-
         // Prevent another submission during an active lock.
 
         if (isLocked) {
             return;
         }
-
 
         // Basic form validation.
 
@@ -226,12 +228,9 @@ export default function SignIn() {
             return;
         }
 
-
         setIsSubmitting(true);
 
-
         try {
-
             // -------------------------------------------------
             // CALL SERVER-SIDE LOGIN FUNCTION
             // -------------------------------------------------
@@ -246,9 +245,7 @@ export default function SignIn() {
                 }
             );
 
-
             let responseData = data as LoginResponse | null;
-
 
             // -------------------------------------------------
             // READ ERROR RESPONSE
@@ -258,7 +255,6 @@ export default function SignIn() {
             // -------------------------------------------------
 
             if (error) {
-
                 const errorContext = (
                     error as {
                         context?: unknown;
@@ -266,21 +262,15 @@ export default function SignIn() {
                 ).context;
 
                 if (errorContext instanceof Response) {
-
                     try {
-
                         responseData = await errorContext
                             .clone()
                             .json();
-
                     } catch {
                         responseData = null;
                     }
-
                 }
-
             }
-
 
             // -------------------------------------------------
             // HANDLE LOGIN FAILURE
@@ -290,17 +280,14 @@ export default function SignIn() {
                 responseData &&
                 responseData.success !== true
             ) {
-
                 if (handleLoginFailure(responseData)) {
                     return;
                 }
-
 
                 if (
                     responseData.code ===
                     "AUTH_TEMPORARILY_UNAVAILABLE"
                 ) {
-
                     setEmailError(
                         "Sign-in is temporarily unavailable. Please try again."
                     );
@@ -308,14 +295,12 @@ export default function SignIn() {
                     return;
                 }
 
-
                 if (
                     responseData.code ===
                     "LOGIN_SERVICE_ERROR" ||
                     responseData.code ===
                     "SERVER_CONFIGURATION_ERROR"
                 ) {
-
                     setEmailError(
                         "The login service is currently unavailable. Please try again later."
                     );
@@ -323,11 +308,9 @@ export default function SignIn() {
                     return;
                 }
 
-
                 if (error) {
                     throw error;
                 }
-
 
                 setEmailError(
                     responseData.message ||
@@ -337,11 +320,9 @@ export default function SignIn() {
                 return;
             }
 
-
             if (error) {
                 throw error;
             }
-
 
             // -------------------------------------------------
             // VALIDATE SESSION TOKENS
@@ -351,14 +332,12 @@ export default function SignIn() {
                 !responseData?.access_token ||
                 !responseData?.refresh_token
             ) {
-
                 setEmailError(
                     "Unable to establish your session. Please try again."
                 );
 
                 return;
             }
-
 
             // -------------------------------------------------
             // ESTABLISH SUPABASE SESSION
@@ -369,21 +348,15 @@ export default function SignIn() {
 
             const { data: sessionData, error: sessionError } =
                 await supabase.auth.setSession({
-
                     access_token: responseData.access_token,
-
                     refresh_token: responseData.refresh_token,
-
                 });
-
 
             if (sessionError) {
                 throw sessionError;
             }
 
-
             if (!sessionData.user) {
-
                 setEmailError(
                     "Unable to retrieve your account."
                 );
@@ -391,18 +364,41 @@ export default function SignIn() {
                 return;
             }
 
-
-            // Remember Me remains a UI preference, as in
-            // the existing implementation.
+            // -------------------------------------------------
+            // REMEMBER ME
+            // -------------------------------------------------
+            // Save only the email address.
+            // Never save the password or session tokens here.
             //
-            // Supabase's configured session persistence
-            // remains unchanged.
+            // This runs only after successful authentication
+            // and successful Supabase session establishment.
+            // -------------------------------------------------
 
+            try {
+                if (rememberMe) {
+                    localStorage.setItem(
+                        REMEMBERED_EMAIL_KEY,
+                        email.trim().toLowerCase()
+                    );
+                } else {
+                    localStorage.removeItem(
+                        REMEMBERED_EMAIL_KEY
+                    );
+                }
+            } catch (storageError) {
+                console.warn(
+                    "Unable to update remembered email:",
+                    storageError
+                );
+            }
+
+            // -------------------------------------------------
+            // RESET LOGIN STATE
+            // -------------------------------------------------
 
             setPassword("");
             setLockUntil(null);
             setLockMessage("");
-
 
             // Navigate after Supabase has established the session.
 
@@ -410,9 +406,7 @@ export default function SignIn() {
                 replace: true,
             });
 
-
         } catch (error) {
-
             console.error("Sign in error:", error);
 
             setEmailError(
@@ -420,60 +414,44 @@ export default function SignIn() {
             );
 
         } finally {
-
             setIsSubmitting(false);
-
         }
-
     };
-
 
     // -----------------------------------------------------
     // GOOGLE OAUTH SIGN-IN
     // -----------------------------------------------------
 
     const handleGoogleSignIn = async () => {
-
         setGoogleError("");
         setEmailError("");
         setPasswordError("");
 
         setIsGoogleLoading(true);
 
-
         try {
-
             const { error } = await supabase.auth.signInWithOAuth({
-
                 provider: "google",
 
                 options: {
-
                     redirectTo:
                         `${window.location.origin}/categories`,
 
                     queryParams: {
                         prompt: "select_account",
                     },
-
                 },
-
             });
-
 
             if (error) {
                 throw error;
             }
 
-
             // Supabase redirects the browser to Google.
             // Google then redirects back through Supabase.
 
-
         } catch (error) {
-
             console.error("Google sign-in error:", error);
-
 
             setGoogleError(
                 error instanceof Error
@@ -481,27 +459,20 @@ export default function SignIn() {
                     : "Unable to sign in with Google. Please try again."
             );
 
-
             setIsGoogleLoading(false);
-
         }
-
     };
-
 
     // -----------------------------------------------------
     // RENDER
     // -----------------------------------------------------
 
     return (
-
         <main className="relative min-h-screen w-full bg-[#F7FAFE] lg:h-screen lg:overflow-hidden">
 
             <AudioWidget />
 
-
             <section className="grid min-h-screen w-full grid-cols-1 lg:h-full lg:grid-cols-2">
-
 
                 {/* Left illustration panel */}
 
@@ -522,13 +493,11 @@ export default function SignIn() {
 
                 </div>
 
-
                 {/* Right sign-in panel */}
 
                 <div className="flex min-h-135 items-center justify-center bg-[#F7FAFE] px-6 py-8 sm:px-12 lg:h-full lg:min-h-0 lg:px-10 xl:px-16">
 
                     <div className="w-full max-w-97.5">
-
 
                         {/* Logo and Heading */}
 
@@ -550,7 +519,6 @@ export default function SignIn() {
 
                         </div>
 
-
                         {/* Email and Password Form */}
 
                         <form
@@ -558,7 +526,6 @@ export default function SignIn() {
                             noValidate
                             className="space-y-4"
                         >
-
 
                             {/* Email */}
 
@@ -571,7 +538,6 @@ export default function SignIn() {
                                     Email
                                 </label>
 
-
                                 <div
                                     className={`flex h-12 items-center rounded-full border bg-[#F7FAFE] px-4 shadow-sm focus-within:border-[#6254F5] ${
                                         emailError
@@ -583,7 +549,6 @@ export default function SignIn() {
                                     <span className="mr-2 shrink-0 text-sm font-semibold text-gray-800">
                                         Email:
                                     </span>
-
 
                                     <input
                                         id="email"
@@ -612,9 +577,7 @@ export default function SignIn() {
 
                                 </div>
 
-
                                 {emailError && (
-
                                     <p
                                         id="email-error"
                                         role="alert"
@@ -622,11 +585,9 @@ export default function SignIn() {
                                     >
                                         {emailError}
                                     </p>
-
                                 )}
 
                             </div>
-
 
                             {/* Password */}
 
@@ -639,7 +600,6 @@ export default function SignIn() {
                                     Password
                                 </label>
 
-
                                 <div
                                     className={`flex h-12 items-center rounded-full border bg-[#F7FAFE] px-4 shadow-sm focus-within:border-[#6254F5] ${
                                         passwordError
@@ -651,7 +611,6 @@ export default function SignIn() {
                                     <span className="mr-2 shrink-0 text-sm font-semibold text-gray-800">
                                         Password:
                                     </span>
-
 
                                     <input
                                         id="password"
@@ -682,7 +641,6 @@ export default function SignIn() {
                                         className="min-w-0 flex-1 bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-500"
                                     />
 
-
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -708,9 +666,7 @@ export default function SignIn() {
 
                                 </div>
 
-
                                 {passwordError && (
-
                                     <p
                                         id="password-error"
                                         role="alert"
@@ -718,11 +674,9 @@ export default function SignIn() {
                                     >
                                         {passwordError}
                                     </p>
-
                                 )}
 
                             </div>
-
 
                             {/* Remember Me and Forgot Password */}
 
@@ -745,7 +699,6 @@ export default function SignIn() {
 
                                 </label>
 
-
                                 <Link
                                     to="/forgotpassword"
                                     className="text-[#6254F5] underline underline-offset-2 hover:text-[#4938D8]"
@@ -754,7 +707,6 @@ export default function SignIn() {
                                 </Link>
 
                             </div>
-
 
                             {/* Sign In Button */}
 
@@ -776,11 +728,9 @@ export default function SignIn() {
 
                             </button>
 
-
                             {/* Lockout Message and Countdown */}
 
                             {isLocked && (
-
                                 <div
                                     role="alert"
                                     aria-live="polite"
@@ -801,22 +751,18 @@ export default function SignIn() {
                                     </p>
 
                                 </div>
-
                             )}
 
                             {!isLocked && lockMessage && (
-
                                 <p
                                     role="alert"
                                     className="text-center text-xs text-red-600"
                                 >
                                     {lockMessage}
                                 </p>
-
                             )}
 
                         </form>
-
 
                         {/* OR Divider */}
 
@@ -832,7 +778,6 @@ export default function SignIn() {
 
                         </div>
 
-
                         {/* Google Sign In */}
 
                         <button
@@ -846,15 +791,11 @@ export default function SignIn() {
                         >
 
                             {isGoogleLoading ? (
-
                                 <span>
                                     Connecting to Google...
                                 </span>
-
                             ) : (
-
                                 <>
-
                                     <img
                                         src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
                                         alt=""
@@ -863,30 +804,23 @@ export default function SignIn() {
                                     />
 
                                     Sign In with Google
-
                                 </>
-
                             )}
 
                         </button>
 
-
                         {googleError && (
-
                             <p
                                 role="alert"
                                 className="mt-2 text-center text-xs text-red-600"
                             >
                                 {googleError}
                             </p>
-
                         )}
-
 
                         {/* Sign Up */}
 
                         <p className="mt-6 text-center text-sm text-gray-700">
-
                             Don&apos;t have an account?{" "}
 
                             <Link
@@ -905,7 +839,5 @@ export default function SignIn() {
             </section>
 
         </main>
-
     );
-
 }
