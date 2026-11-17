@@ -1,8 +1,17 @@
-
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, RotateCcw, Award } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  RotateCcw,
+  Award,
+  Languages,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useAudio } from "../../../context/AudioContext";
 import { useAuth } from "../../../context/AuthContext";
 import { supabase } from "../../../lib/supabase";
 
@@ -61,6 +70,90 @@ const DESCRIPTIONS_TL: Record<string, string> = {
 const TEST_START_INDEX = 0;
 const CHECKPOINT_AFTER_INDEX = 5;
 const QUICK_TEST_LENGTH = 3;
+
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 type QuickTestQuestion = {
   questionEn: string;
@@ -124,11 +217,28 @@ const createQuickTestQuestions = (
   });
 };
 
+const chunkyButton =
+  "flex h-12 shrink-0 items-center gap-2 rounded-2xl border-b-4 px-3 text-sm font-extrabold " +
+  "whitespace-nowrap sm:text-base md:px-4 " +
+  "transition-all duration-150 select-none " +
+  "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
+  "motion-reduce:transition-none motion-reduce:hover:transform-none";
+
 export default function AlphabetTutorialPart1() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
+  const { isPlaying, volume, toggleMusic } = useAudio();
   const { user, loading: authLoading } = useAuth();
   const isTagalog = language === "tl";
+
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isQuickTest, setIsQuickTest] = useState(false);
@@ -185,6 +295,8 @@ export default function AlphabetTutorialPart1() {
     ? DESCRIPTIONS_TL[currentLetter]
     : DESCRIPTIONS_EN[currentLetter];
 
+  const isMusicActive = isPlaying && volume > 0;
+
   // --------------------------------------------------
   // DATABASE SAVE QUEUE
   // --------------------------------------------------
@@ -224,7 +336,6 @@ export default function AlphabetTutorialPart1() {
 
   // --------------------------------------------------
   // SAVE STANDARD TUTORIAL PROGRESS
-  // Each part has its own progress row.
   // --------------------------------------------------
 
   const saveProgress = (
@@ -431,7 +542,6 @@ export default function AlphabetTutorialPart1() {
           setIsCorrect(null);
           setIsQuickTest(false);
 
-          // Recover tutorial mode if a stale test flag remains.
           if (progress?.tutorial_is_quick_test) {
             const { error: resetError } = await supabase
               .from("alphabet_progress")
@@ -528,7 +638,6 @@ export default function AlphabetTutorialPart1() {
 
   // --------------------------------------------------
   // SAVE ANSWERS TO THE ASSESSMENT ATTEMPT
-  // AND THE LEARNER'S PROGRESS ROW
   // --------------------------------------------------
 
   const persistAttemptAnswers = async (
@@ -590,7 +699,6 @@ export default function AlphabetTutorialPart1() {
     if (error) throw error;
 
     if (currentIndex === CHECKPOINT_AFTER_INDEX) {
-      // First checkpoint completed: move to G and stay on the tutorial page.
       await saveProgress(
         CHECKPOINT_AFTER_INDEX + 1,
         false,
@@ -600,7 +708,6 @@ export default function AlphabetTutorialPart1() {
       setCurrentIndex(CHECKPOINT_AFTER_INDEX + 1);
       setPartCompleted(false);
     } else {
-      // Second checkpoint completed: Part 1 is finished.
       await saveProgress(
         ALPHABET.length - 1,
         true,
@@ -618,7 +725,6 @@ export default function AlphabetTutorialPart1() {
     setIsCorrect(null);
     setIsQuickTest(false);
 
-    // Only navigate away after the second checkpoint.
     if (currentIndex !== CHECKPOINT_AFTER_INDEX) {
       navigate("/alphabet");
     }
@@ -779,7 +885,6 @@ export default function AlphabetTutorialPart1() {
   const handleLetterChange = async (index: number) => {
     if (index < 0 || index >= ALPHABET.length || progressSaving) return;
 
-    // Do not let learners skip the first checkpoint.
     if (
       currentIndex <= CHECKPOINT_AFTER_INDEX &&
       index > CHECKPOINT_AFTER_INDEX
@@ -791,7 +896,7 @@ export default function AlphabetTutorialPart1() {
       await saveProgress(index, partCompleted);
       setCurrentIndex(index);
     } catch {
-      // Keep the current position if saving failed.
+      // Keep current position if saving failed
     }
   };
 
@@ -807,7 +912,6 @@ export default function AlphabetTutorialPart1() {
           await createQuickTestAttempt();
         }
 
-        // Existing attempts retain their saved questions and answers.
         setIsQuickTest(true);
       } catch (error) {
         console.error("Unable to start the quick test:", error);
@@ -828,7 +932,7 @@ export default function AlphabetTutorialPart1() {
       await saveProgress(nextIndex, partCompleted);
       setCurrentIndex(nextIndex);
     } catch {
-      // Do not advance if saving failed.
+      // Do not advance if saving failed
     }
   };
 
@@ -907,7 +1011,6 @@ export default function AlphabetTutorialPart1() {
   const handleQuickTestBack = async () => {
     if (progressSaving) return;
 
-    // Keep the attempt active so it can be resumed later.
     try {
       await saveQuickTestProgress(
         currentIndex,
@@ -943,43 +1046,295 @@ export default function AlphabetTutorialPart1() {
   }
 
   // --------------------------------------------------
-  // QUICK TEST MODE
+  // RENDER CONTENT FUNCTION (ZOOM-PROOF)
   // --------------------------------------------------
 
-  if (isQuickTest) {
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+  const renderContent = (_isDesktop: boolean) => {
+    if (isQuickTest) {
+      const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+
+      return (
+        <div className="relative w-full min-h-[700px]">
+          {/* SUB-HEADER BAR WITH TRANSLATE & MUTE/MUSIC */}
+          <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleQuickTestBack}
+                disabled={progressSaving}
+                aria-label={isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ArrowLeft size={22} strokeWidth={2.5} />
+              </button>
+
+              <div>
+                <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+                  {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+                </h1>
+                <p className="text-sm font-medium text-slate-600 sm:text-base">
+                  {isTagalog
+                    ? `Checkpoint ${checkpointNumber}: mga titik ${checkpointNumber === 1 ? "A–F" : "G–M"}`
+                    : `Checkpoint ${checkpointNumber}: letters ${checkpointNumber === 1 ? "A–F" : "G–M"}`}
+                </p>
+              </div>
+            </div>
+
+            {/* QUICK CONTROLS: Language & Music / Mute */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => toggleLanguage()}
+                className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+              >
+                <Languages size={22} />
+                <span>{isTagalog ? "TL" : "EN"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleMusic()}
+                aria-pressed={isMusicActive}
+                aria-label={
+                  isMusicActive
+                    ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                    : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+                }
+                className={`${chunkyButton} ${
+                  isMusicActive
+                    ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                    : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {isMusicActive ? (
+                  <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+                ) : (
+                  <VolumeX size={22} />
+                )}
+                <span className="hidden md:inline">
+                  {isMusicActive
+                    ? isTagalog ? "Tugtog" : "Music"
+                    : isTagalog ? "Naka-mute" : "Muted"}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="w-full max-w-6xl mx-auto px-4 pb-24 pt-6 sm:px-6">
+            {progressError && (
+              <div
+                role="alert"
+                className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700"
+              >
+                {progressError}
+              </div>
+            )}
+
+            {progressSaving && (
+              <p className="mb-3 text-xs font-medium text-slate-500">
+                {isTagalog ? "Sine-save ang progreso..." : "Saving progress..."}
+              </p>
+            )}
+
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
+                {isTagalog
+                  ? `Tanong ${testIndex + TEST_START_INDEX + 1} ng ${QUICK_TEST_LENGTH}`
+                  : `Question ${testIndex + TEST_START_INDEX + 1} of ${QUICK_TEST_LENGTH}`}
+              </p>
+
+              <div
+                className="h-3 w-full overflow-hidden rounded-full bg-white/80"
+                aria-hidden="true"
+              >
+                <div
+                  className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
+                  style={{
+                    width: `${((testIndex + TEST_START_INDEX + 1) / QUICK_TEST_LENGTH) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
+              <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
+                <video
+                  ref={testVideoRef}
+                  src="/videos/FSLalphabet.mp4"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  onTimeUpdate={handleTestVideoTimeUpdate}
+                  onPlay={handleTestVideoPlay}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
+                <div className="flex items-center gap-2 text-[#36A9F4]">
+                  <Award size={22} />
+                  <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
+                    {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+                  </span>
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
+                    {isTagalog ? currentQ.questionTl : currentQ.questionEn}
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {currentQ.options.map((opt) => {
+                    let btnStyle =
+                      "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
+
+                    if (selectedAnswer === opt) {
+                      btnStyle = isCorrect
+                        ? "border-emerald-500 bg-emerald-100 text-emerald-700"
+                        : "border-rose-500 bg-rose-100 text-rose-700";
+                    } else if (selectedAnswer && opt === currentQ.answer) {
+                      btnStyle =
+                        "border-emerald-500 bg-emerald-100 text-emerald-700";
+                    }
+
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        disabled={selectedAnswer !== null || progressSaving}
+                        onClick={() => handleAnswerSelect(opt)}
+                        className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${btnStyle}`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestReplay}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                >
+                  <RotateCcw size={20} aria-hidden="true" />
+                  {isTagalog ? "Panoorin ulit" : "Watch again"}
+                </button>
+              </div>
+            </div>
+
+            {selectedAnswer !== null && (
+              <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
+                <p
+                  className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}
+                >
+                  {isCorrect
+                    ? isTagalog
+                      ? "Magaling! Tama ang sagot mo! 🎉"
+                      : "Great job! Correct answer! 🎉"
+                    : isTagalog
+                      ? `Mali! Ang tamang sagot ay ${currentQ.answer}.`
+                      : `Incorrect! The correct answer is ${currentQ.answer}.`}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleNextTestQuestion}
+                  disabled={progressSaving}
+                  className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testIndex < QUICK_TEST_QUESTIONS.length - 1
+                    ? isTagalog
+                      ? "Susunod na Tanong"
+                      : "Next Question"
+                    : isTagalog
+                      ? checkpointNumber === 1
+                        ? "Magpatuloy sa G–M"
+                        : "Tapusin ang Part 1"
+                      : checkpointNumber === 1
+                        ? "Continue to G–M"
+                        : "Finish Part 1"}
+
+                  <ArrowRight size={21} strokeWidth={3} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     return (
-      <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+      <div className="relative w-full min-h-[700px]">
+        {/* SUB-HEADER BAR WITH TRANSLATE & MUTE/MUSIC */}
         <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleQuickTestBack}
-              disabled={progressSaving}
-              aria-label={isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => navigate("/alphabet")}
+              aria-label={
+                isTagalog
+                  ? "Bumalik sa menu ng alpabeto"
+                  : "Back to alphabet menu"
+              }
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
             >
               <ArrowLeft size={22} strokeWidth={2.5} />
             </button>
 
             <div>
               <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-                {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+                {isTagalog ? "Tutorial sa Alpabeto" : "Alphabet Tutorial"}
               </h1>
               <p className="text-sm font-medium text-slate-600 sm:text-base">
                 {isTagalog
-                  ? `Checkpoint ${checkpointNumber}: mga titik ${checkpointNumber === 1 ? "A–F" : "G–M"}`
-                  : `Checkpoint ${checkpointNumber}: letters ${checkpointNumber === 1 ? "A–F" : "G–M"}`}
+                  ? "Matutunan ang mga titik A–M gamit ang gabay na ito."
+                  : "Learn letters A–M step by step."}
               </p>
             </div>
           </div>
+
+          {/* QUICK CONTROLS: Language & Music / Mute */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => toggleLanguage()}
+              className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+            >
+              <Languages size={22} />
+              <span>{isTagalog ? "TL" : "EN"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleMusic()}
+              aria-pressed={isMusicActive}
+              aria-label={
+                isMusicActive
+                  ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                  : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+              }
+              className={`${chunkyButton} ${
+                isMusicActive
+                  ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+              }`}
+            >
+              {isMusicActive ? (
+                <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+              ) : (
+                <VolumeX size={22} />
+              )}
+              <span className="hidden md:inline">
+                {isMusicActive
+                  ? isTagalog ? "Tugtog" : "Music"
+                  : isTagalog ? "Naka-mute" : "Muted"}
+              </span>
+            </button>
+          </div>
         </div>
 
-        <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
-        <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
-
-        <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+        <div className="w-full max-w-6xl mx-auto px-4 pb-24 pt-6 sm:px-6">
           {progressError && (
             <div
               role="alert"
@@ -998,8 +1353,8 @@ export default function AlphabetTutorialPart1() {
           <div className="mb-4">
             <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
               {isTagalog
-                ? `Tanong ${testIndex + TEST_START_INDEX + 1} ng ${QUICK_TEST_LENGTH}`
-                : `Question ${testIndex + TEST_START_INDEX + 1} of ${QUICK_TEST_LENGTH}`}
+                ? `Titik ${currentIndex + 1} ng ${total}`
+                : `Letter ${currentIndex + 1} of ${total}`}
             </p>
 
             <div
@@ -1007,74 +1362,81 @@ export default function AlphabetTutorialPart1() {
               aria-hidden="true"
             >
               <div
-                className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
+                className="h-full rounded-full bg-[#36A9F4] transition-all duration-300 motion-reduce:transition-none"
                 style={{
-                  width: `${((testIndex + TEST_START_INDEX + 1) / QUICK_TEST_LENGTH) * 100}%`,
+                  width: `${((currentIndex + 1) / total) * 100}%`,
                 }}
               />
             </div>
           </div>
 
+          <div
+            className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2 scrollbar-none"
+            role="group"
+            aria-label={isTagalog ? "Piliin ang titik" : "Choose a letter"}
+          >
+            {ALPHABET.map((letter, position) => {
+              const isCurrent = position === currentIndex;
+
+              return (
+                <button
+                  key={letter}
+                  ref={(element) => {
+                    chipRefs.current[position] = element;
+                  }}
+                  type="button"
+                  onClick={() => handleLetterChange(position)}
+                  disabled={progressSaving}
+                  aria-current={isCurrent ? "step" : undefined}
+                  aria-label={
+                    isTagalog ? `Titik ${letter}` : `Letter ${letter}`
+                  }
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isCurrent
+                      ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
+                      : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
+                  }`}
+                >
+                  {letter}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
             <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
               <video
-                ref={testVideoRef}
+                ref={videoRef}
                 src="/videos/FSLalphabet.mp4"
                 controls
                 playsInline
                 preload="metadata"
-                onTimeUpdate={handleTestVideoTimeUpdate}
-                onPlay={handleTestVideoPlay}
+                onTimeUpdate={handleVideoTimeUpdate}
+                onPlay={handleVideoPlay}
                 className="h-full w-full object-contain"
               />
             </div>
 
             <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-              <div className="flex items-center gap-2 text-[#36A9F4]">
-                <Award size={22} />
-                <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
-                  {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+              <div className="flex flex-col items-center justify-center">
+                <span className="text-5xl font-black text-[#426A91] sm:text-6xl">
+                  {isTagalog ? `Titik ${currentLetter}` : `Letter ${currentLetter}`}
                 </span>
               </div>
 
               <div>
-                <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
-                  {isTagalog ? currentQ.questionTl : currentQ.questionEn}
+                <h2 className="mb-1 text-lg font-black text-[#454545] sm:text-xl">
+                  {isTagalog ? "Paglalarawan:" : "Descriptions:"}
                 </h2>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {currentQ.options.map((opt) => {
-                  let btnStyle =
-                    "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
-
-                  if (selectedAnswer === opt) {
-                    btnStyle = isCorrect
-                      ? "border-emerald-500 bg-emerald-100 text-emerald-700"
-                      : "border-rose-500 bg-rose-100 text-rose-700";
-                  } else if (selectedAnswer && opt === currentQ.answer) {
-                    btnStyle =
-                      "border-emerald-500 bg-emerald-100 text-emerald-700";
-                  }
-
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={selectedAnswer !== null || progressSaving}
-                      onClick={() => handleAnswerSelect(opt)}
-                      className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${btnStyle}`}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
+                <p className="text-base leading-relaxed text-[#555555] sm:text-lg">
+                  {description}
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={handleTestReplay}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                onClick={handleReplay}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:w-auto sm:self-start sm:px-6"
               >
                 <RotateCcw size={20} aria-hidden="true" />
                 {isTagalog ? "Panoorin ulit" : "Watch again"}
@@ -1082,81 +1444,47 @@ export default function AlphabetTutorialPart1() {
             </div>
           </div>
 
-          {selectedAnswer !== null && (
-            <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
-              <p
-                className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}
-              >
-                {isCorrect
-                  ? isTagalog
-                    ? "Magaling! Tama ang sagot mo! 🎉"
-                    : "Great job! Correct answer! 🎉"
-                  : isTagalog
-                    ? `Mali! Ang tamang sagot ay ${currentQ.answer}.`
-                    : `Incorrect! The correct answer is ${currentQ.answer}.`}
-              </p>
-
+          <div className="mt-6 flex items-center justify-between gap-3">
+            {currentIndex > 0 ? (
               <button
                 type="button"
-                onClick={handleNextTestQuestion}
+                onClick={() => handleLetterChange(currentIndex - 1)}
                 disabled={progressSaving}
-                className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 text-lg font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
               >
-                {testIndex < QUICK_TEST_QUESTIONS.length - 1
-                  ? isTagalog
-                    ? "Susunod na Tanong"
-                    : "Next Question"
-                  : isTagalog
-                    ? checkpointNumber === 1
-                      ? "Magpatuloy sa G–M"
-                      : "Tapusin ang Part 1"
-                    : checkpointNumber === 1
-                      ? "Continue to G–M"
-                      : "Finish Part 1"}
-
-                <ArrowRight size={21} strokeWidth={3} />
+                <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
+                {isTagalog ? "Nakaraan" : "Previous"}
               </button>
-            </div>
-          )}
-        </section>
-      </main>
-    );
-  }
+            ) : (
+              <span aria-hidden="true" />
+            )}
 
-  // --------------------------------------------------
-  // STANDARD TUTORIAL MODE
-  // --------------------------------------------------
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={progressSaving}
+              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 text-lg font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
+            >
+              {currentIndex === CHECKPOINT_AFTER_INDEX || isLast
+                ? "Quick Test"
+                : isTagalog
+                  ? "Susunod"
+                  : "Next"}
 
-  return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/alphabet")}
-            aria-label={
-              isTagalog
-                ? "Bumalik sa menu ng alpabeto"
-                : "Back to alphabet menu"
-            }
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
-          >
-            <ArrowLeft size={22} strokeWidth={2.5} />
-          </button>
-
-          <div>
-            <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-              {isTagalog ? "Tutorial sa Alpabeto" : "Alphabet Tutorial"}
-            </h1>
-            <p className="text-sm font-medium text-slate-600 sm:text-base">
-              {isTagalog
-                ? "Matutunan ang mga titik A–M gamit ang gabay na ito."
-                : "Learn letters A–M step by step."}
-            </p>
+              {currentIndex === CHECKPOINT_AFTER_INDEX || isLast ? (
+                <Check size={21} strokeWidth={3} aria-hidden="true" />
+              ) : (
+                <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
+              )}
+            </button>
           </div>
         </div>
       </div>
+    );
+  };
 
+  return (
+    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
@@ -1164,151 +1492,28 @@ export default function AlphabetTutorialPart1() {
       <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
       <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-        {progressError && (
-          <div
-            role="alert"
-            className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700"
-          >
-            {progressError}
-          </div>
-        )}
-
-        {progressSaving && (
-          <p className="mb-3 text-xs font-medium text-slate-500">
-            {isTagalog ? "Sine-save ang progreso..." : "Saving progress..."}
-          </p>
-        )}
-
-        <div className="mb-4">
-          <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
-            {isTagalog
-              ? `Titik ${currentIndex + 1} ng ${total}`
-              : `Letter ${currentIndex + 1} of ${total}`}
-          </p>
-
-          <div
-            className="h-3 w-full overflow-hidden rounded-full bg-white/80"
-            aria-hidden="true"
-          >
-            <div
-              className="h-full rounded-full bg-[#36A9F4] transition-all duration-300 motion-reduce:transition-none"
-              style={{
-                width: `${((currentIndex + 1) / total) * 100}%`,
-              }}
-            />
-          </div>
+      {isMobileView ? (
+        <div className="relative z-10 w-full">
+          {renderContent(false)}
         </div>
-
+      ) : (
         <div
-          className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2 scrollbar-none"
-          role="group"
-          aria-label={isTagalog ? "Piliin ang titik" : "Choose a letter"}
+          ref={stageOuterRef}
+          className="relative z-10 w-full"
+          style={{ height: stageFit.height || undefined }}
         >
-          {ALPHABET.map((letter, position) => {
-            const isCurrent = position === currentIndex;
-
-            return (
-              <button
-                key={letter}
-                ref={(element) => {
-                  chipRefs.current[position] = element;
-                }}
-                type="button"
-                onClick={() => handleLetterChange(position)}
-                disabled={progressSaving}
-                aria-current={isCurrent ? "step" : undefined}
-                aria-label={
-                  isTagalog ? `Titik ${letter}` : `Letter ${letter}`
-                }
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isCurrent
-                    ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
-                    : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
-                }`}
-              >
-                {letter}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
-          <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
-            <video
-              ref={videoRef}
-              src="/videos/FSLalphabet.mp4"
-              controls
-              playsInline
-              preload="metadata"
-              onTimeUpdate={handleVideoTimeUpdate}
-              onPlay={handleVideoPlay}
-              className="h-full w-full object-contain"
-            />
-          </div>
-
-          <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-            <div className="flex flex-col items-center justify-center">
-              <span className="text-5xl font-black text-[#426A91] sm:text-6xl">
-                {isTagalog ? `Titik ${currentLetter}` : `Letter ${currentLetter}`}
-              </span>
-            </div>
-
-            <div>
-              <h2 className="mb-1 text-lg font-black text-[#454545] sm:text-xl">
-                {isTagalog ? "Paglalarawan:" : "Descriptions:"}
-              </h2>
-              <p className="text-base leading-relaxed text-[#555555] sm:text-lg">
-                {description}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleReplay}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:w-auto sm:self-start sm:px-6"
-            >
-              <RotateCcw size={20} aria-hidden="true" />
-              {isTagalog ? "Panoorin ulit" : "Watch again"}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between gap-3">
-          {currentIndex > 0 ? (
-            <button
-              type="button"
-              onClick={() => handleLetterChange(currentIndex - 1)}
-              disabled={progressSaving}
-              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 text-lg font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
-            >
-              <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
-              {isTagalog ? "Nakaraan" : "Previous"}
-            </button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={progressSaving}
-            className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 text-lg font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
+          <div
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top left",
+            }}
           >
-            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast
-              ? "Quick Test"
-              : isTagalog
-                ? "Susunod"
-                : "Next"}
-
-            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast ? (
-              <Check size={21} strokeWidth={3} aria-hidden="true" />
-            ) : (
-              <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
-            )}
-          </button>
+            {renderContent(true)}
+          </div>
         </div>
-      </section>
+      )}
     </main>
   );
 }

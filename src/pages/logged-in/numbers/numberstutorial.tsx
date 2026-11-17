@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -17,6 +17,90 @@ import { supabase } from "../../../lib/supabase";
 
 const PART_KEY = "part_1";
 const NUMBERS = Array.from({ length: 10 }, (_, index) => String(index + 1));
+
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 // Number video timestamps in seconds (1-10)
 const NUMBER_TIMESTAMPS: Record<string, { start: number; end: number }> = {
@@ -130,6 +214,14 @@ export default function NumbersTutorialPart1() {
   const { user, loading: authLoading } = useAuth();
   const isTagalog = language === "tl";
 
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isQuickTest, setIsQuickTest] = useState(false);
   const [testIndex, setTestIndex] = useState(0);
@@ -180,8 +272,6 @@ export default function NumbersTutorialPart1() {
     : DESCRIPTIONS_EN[currentNumber];
   const isMusicActive = isPlaying && volume > 0;
 
-  // Runs saves one at a time (in order) so fast clicks can't overwrite each other.
-  // Never rejects: resolves true on success, false on failure (and shows the banner).
   const queueSave = (
     operation: () => Promise<void>,
     label: string
@@ -316,9 +406,6 @@ export default function NumbersTutorialPart1() {
         if (!isMounted) return;
         const activeAttempt = activeAttempts?.[0];
 
-        // Resume only a quick test that still matches the saved progress.
-        // Leftover "in_progress" attempts from a finished part or an older
-        // checkpoint are ignored, so a finished tutorial opens normally.
         const attemptCheckpoint =
           Number(activeAttempt?.checkpoint_number) === 1 ? 1 : 2;
         const progressCheckpoint = savedIndex > CHECKPOINT_AFTER_INDEX ? 2 : 1;
@@ -406,7 +493,6 @@ export default function NumbersTutorialPart1() {
     );
     const initialAnswers: (string | null)[] = Array(QUICK_TEST_LENGTH).fill(null);
 
-    // Set the questions first so the quick test stays stable even if saving fails.
     setQuickTestQuestions(questions);
     setAnswers(initialAnswers);
     setTestIndex(0);
@@ -505,17 +591,15 @@ export default function NumbersTutorialPart1() {
     }
 
     if (currentIndex === CHECKPOINT_AFTER_INDEX) {
-      // Checkpoint 1 done -> move on to numbers 6-10
       const nextIndex = CHECKPOINT_AFTER_INDEX + 1;
       const saved = await saveProgress(nextIndex, partCompleted, score);
-      if (!saved) return; // stay here so the child can press the button again
+      if (!saved) return;
 
       setCurrentIndex(nextIndex);
       resetQuickTestState();
       return;
     }
 
-    // Checkpoint 2 done -> mark the whole part as completed (unlocks Part 2)
     const saved = await saveProgress(NUMBERS.length - 1, true, score);
     if (!saved) return;
 
@@ -660,346 +744,439 @@ export default function NumbersTutorialPart1() {
     );
   }
 
-  // Quick Test Mode View
-  if (isQuickTest) {
-    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+  // --------------------------------------------------
+  // RENDER CONTENT FUNCTION (ZOOM-PROOF)
+  // --------------------------------------------------
+
+  const renderContent = (_isDesktop: boolean) => {
+    if (isQuickTest) {
+      const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+
+      return (
+        <div className="relative w-full min-h-[700px]">
+          {/* SUB-HEADER BAR */}
+          <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  await saveQuickTestProgress(currentIndex, testIndex, answers);
+                  setIsQuickTest(false);
+                }}
+                aria-label={isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+              >
+                <ArrowLeft size={22} strokeWidth={2.5} />
+              </button>
+
+              <div>
+                <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+                  {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+                </h1>
+                <p className="text-sm font-medium text-slate-600 sm:text-base">
+                  {isTagalog
+                    ? `Checkpoint ${checkpointNumber}: mga numero ${checkpointNumber === 1 ? "1–5" : "6–10"}`
+                    : `Checkpoint ${checkpointNumber}: numbers ${checkpointNumber === 1 ? "1–5" : "6–10"}`}
+                </p>
+              </div>
+            </div>
+
+            {/* QUICK CONTROLS: Language & Music / Mute */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => toggleLanguage()}
+                className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+              >
+                <Languages size={22} />
+                <span>{isTagalog ? "TL" : "EN"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleMusic()}
+                aria-pressed={isMusicActive}
+                aria-label={
+                  isMusicActive
+                    ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                    : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+                }
+                className={`${chunkyButton} ${
+                  isMusicActive
+                    ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                    : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {isMusicActive ? (
+                  <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+                ) : (
+                  <VolumeX size={22} />
+                )}
+                <span className="hidden md:inline">
+                  {isMusicActive
+                    ? isTagalog ? "Tugtog" : "Music"
+                    : isTagalog ? "Naka-mute" : "Muted"}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+            {syncBanner}
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
+                {isTagalog
+                  ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_LENGTH}`
+                  : `Question ${testIndex + 1} of ${QUICK_TEST_LENGTH}`}
+              </p>
+
+              <div className="h-3 w-full overflow-hidden rounded-full bg-white/80" aria-hidden="true">
+                <div
+                  className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
+                  style={{
+                    width: `${((testIndex + 1) / QUICK_TEST_LENGTH) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
+              <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
+                <video
+                  ref={testVideoRef}
+                  src="/videos/FSLnumbers.mp4"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  onTimeUpdate={handleTestVideoTimeUpdate}
+                  onPlay={handleTestVideoPlay}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
+                <div className="flex items-center gap-2 text-[#36A9F4]">
+                  <Award size={22} />
+                  <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
+                    {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+                  </span>
+                </div>
+
+                <div>
+                  <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
+                    {isTagalog ? currentQ.questionTl : currentQ.questionEn}
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {currentQ.options.map((opt) => {
+                    let btnStyle =
+                      "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
+
+                    if (selectedAnswer === opt) {
+                      btnStyle = isCorrect
+                        ? "border-emerald-500 bg-emerald-100 text-emerald-700"
+                        : "border-rose-500 bg-rose-100 text-rose-700";
+                    } else if (selectedAnswer && opt === currentQ.answer) {
+                      btnStyle =
+                        "border-emerald-500 bg-emerald-100 text-emerald-700";
+                    }
+
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        disabled={selectedAnswer !== null}
+                        onClick={async () => {
+                          const updated = [...answers];
+                          updated[testIndex] = opt;
+                          setAnswers(updated);
+                          setSelectedAnswer(opt);
+                          setIsCorrect(opt === currentQ.answer);
+                          await persistAttemptAnswers(updated, testIndex);
+                        }}
+                        className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${btnStyle}`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestReplay}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                >
+                  <RotateCcw size={20} aria-hidden="true" />
+                  {isTagalog ? "Panoorin ulit" : "Watch again"}
+                </button>
+              </div>
+            </div>
+
+            {selectedAnswer !== null && (
+              <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
+                <p
+                  className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}
+                >
+                  {isCorrect
+                    ? isTagalog
+                      ? "Magaling! Tama ang sagot mo! 🎉"
+                      : "Great job! Correct answer! 🎉"
+                    : isTagalog
+                      ? `Mali! Ang tamang sagot ay ${currentQ.answer}.`
+                      : `Incorrect! The correct answer is ${currentQ.answer}.`}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (testIndex < QUICK_TEST_LENGTH - 1) {
+                      const next = testIndex + 1;
+                      setTestIndex(next);
+                      setSelectedAnswer(answers[next]);
+                      setIsCorrect(
+                        answers[next] === null
+                          ? null
+                          : answers[next] === QUICK_TEST_QUESTIONS[next].answer
+                      );
+                    } else {
+                      await completeQuickTestAttempt();
+                    }
+                  }}
+                  className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2"
+                >
+                  {testIndex < QUICK_TEST_LENGTH - 1
+                    ? isTagalog
+                      ? "Susunod na Tanong"
+                      : "Next Question"
+                    : isTagalog
+                      ? checkpointNumber === 1
+                        ? "Magpatuloy sa 6–10"
+                        : "Tapusin"
+                      : checkpointNumber === 1
+                        ? "Continue to 6–10"
+                        : "Finish"}
+
+                  <ArrowRight size={21} strokeWidth={3} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     return (
-      <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-        <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
-        <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
-
+      <div className="relative w-full min-h-[700px]">
+        {/* SUB-HEADER BAR */}
         <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={async () => {
-                await saveQuickTestProgress(currentIndex, testIndex, answers);
-                setIsQuickTest(false);
-              }}
-              aria-label={isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"}
+              onClick={() => navigate("/numbers")}
+              aria-label={isTagalog ? "Bumalik sa mapa" : "Back to map"}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
             >
               <ArrowLeft size={22} strokeWidth={2.5} />
             </button>
-
             <div>
               <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-                {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+                {isTagalog ? "Tutorial sa mga Numero (1–10)" : "Numbers Tutorial (1–10)"}
               </h1>
               <p className="text-sm font-medium text-slate-600 sm:text-base">
-                {isTagalog
-                  ? `Checkpoint ${checkpointNumber}: mga numero ${checkpointNumber === 1 ? "1–5" : "6–10"}`
-                  : `Checkpoint ${checkpointNumber}: numbers ${checkpointNumber === 1 ? "1–5" : "6–10"}`}
+                {isTagalog ? "Matutunan ang mga numerong 1–10 hakbang-hakbang." : "Learn numbers 1–10 step by step."}
               </p>
             </div>
           </div>
+
+          {/* QUICK CONTROLS: Language & Music / Mute */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => toggleLanguage()}
+              className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+            >
+              <Languages size={22} />
+              <span>{isTagalog ? "TL" : "EN"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleMusic()}
+              aria-pressed={isMusicActive}
+              aria-label={
+                isMusicActive
+                  ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                  : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+              }
+              className={`${chunkyButton} ${
+                isMusicActive
+                  ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+              }`}
+            >
+              {isMusicActive ? (
+                <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+              ) : (
+                <VolumeX size={22} />
+              )}
+              <span className="hidden md:inline">
+                {isMusicActive
+                  ? isTagalog ? "Tugtog" : "Music"
+                  : isTagalog ? "Naka-mute" : "Muted"}
+              </span>
+            </button>
+          </div>
         </div>
 
-        <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-        {syncBanner}
+        <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+          {syncBanner}
           <div className="mb-4">
-            <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
-              {isTagalog
-                ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_LENGTH}`
-                : `Question ${testIndex + 1} of ${QUICK_TEST_LENGTH}`}
+            <p className="mb-2 text-sm font-extrabold text-[#164B9B]">
+              {isTagalog ? `Numero ${currentIndex + 1} ng ${total}` : `Number ${currentIndex + 1} of ${total}`}
             </p>
-
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white/80" aria-hidden="true">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
               <div
-                className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
-                style={{
-                  width: `${((testIndex + 1) / QUICK_TEST_LENGTH) * 100}%`,
-                }}
+                className="h-full rounded-full bg-[#36A9F4]"
+                style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
               />
             </div>
           </div>
 
+          {/* NUMBER CHIPS */}
+          <div className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2">
+            {NUMBERS.map((num, position) => {
+              const isCurrent = position === currentIndex;
+              return (
+                <button
+                  key={num}
+                  ref={(el) => {
+                    chipRefs.current[position] = el;
+                  }}
+                  type="button"
+                  onClick={async () => {
+                    if (currentIndex <= CHECKPOINT_AFTER_INDEX && position > CHECKPOINT_AFTER_INDEX) return;
+                    setCurrentIndex(position);
+                    await saveProgress(position, partCompleted);
+                  }}
+                  className={`flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black ${
+                    isCurrent
+                      ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
+                      : "border-[#B8DDF6] bg-white text-[#426A91]"
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* TUTORIAL CARD */}
           <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
             <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
               <video
-                ref={testVideoRef}
+                ref={videoRef}
                 src="/videos/FSLnumbers.mp4"
                 controls
                 playsInline
                 preload="metadata"
-                onTimeUpdate={handleTestVideoTimeUpdate}
-                onPlay={handleTestVideoPlay}
+                onTimeUpdate={handleVideoTimeUpdate}
+                onPlay={handleVideoPlay}
                 className="h-full w-full object-contain"
               />
             </div>
 
             <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-              <div className="flex items-center gap-2 text-[#36A9F4]">
-                <Award size={22} />
-                <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
-                  {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+              <div className="flex flex-col items-center justify-center">
+                <span className="text-4xl font-black text-[#426A91] sm:text-5xl">
+                  {isTagalog ? `Numero ${currentNumber}` : `Number ${currentNumber}`}
                 </span>
               </div>
-
               <div>
-                <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
-                  {isTagalog ? currentQ.questionTl : currentQ.questionEn}
+                <h2 className="mb-1 text-lg font-black text-[#454545]">
+                  {isTagalog ? "Paglalarawan:" : "Description:"}
                 </h2>
+                <p className="text-base leading-relaxed text-[#555555]">
+                  {description}
+                </p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {currentQ.options.map((opt) => {
-                  let btnStyle =
-                    "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
-
-                  if (selectedAnswer === opt) {
-                    btnStyle = isCorrect
-                      ? "border-emerald-500 bg-emerald-100 text-emerald-700"
-                      : "border-rose-500 bg-rose-100 text-rose-700";
-                  } else if (selectedAnswer && opt === currentQ.answer) {
-                    btnStyle =
-                      "border-emerald-500 bg-emerald-100 text-emerald-700";
-                  }
-
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={selectedAnswer !== null}
-                      onClick={async () => {
-                        const updated = [...answers];
-                        updated[testIndex] = opt;
-                        setAnswers(updated);
-                        setSelectedAnswer(opt);
-                        setIsCorrect(opt === currentQ.answer);
-                        await persistAttemptAnswers(updated, testIndex);
-                      }}
-                      className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${btnStyle}`}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-
               <button
                 type="button"
-                onClick={handleTestReplay}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                onClick={handleReplay}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 font-extrabold text-white sm:w-auto sm:px-6"
               >
-                <RotateCcw size={20} aria-hidden="true" />
+                <RotateCcw size={20} />
                 {isTagalog ? "Panoorin ulit" : "Watch again"}
               </button>
             </div>
           </div>
 
-          {selectedAnswer !== null && (
-            <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
-              <p
-                className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}
-              >
-                {isCorrect
-                  ? isTagalog
-                    ? "Magaling! Tama ang sagot mo! 🎉"
-                    : "Great job! Correct answer! 🎉"
-                  : isTagalog
-                    ? `Mali! Ang tamang sagot ay ${currentQ.answer}.`
-                    : `Incorrect! The correct answer is ${currentQ.answer}.`}
-              </p>
-
+          {/* NAVIGATION BUTTONS */}
+          <div className="mt-6 flex items-center justify-between gap-3">
+            {currentIndex > 0 ? (
               <button
                 type="button"
                 onClick={async () => {
-                  if (testIndex < QUICK_TEST_LENGTH - 1) {
-                    const next = testIndex + 1;
-                    setTestIndex(next);
-                    setSelectedAnswer(answers[next]);
-                    setIsCorrect(
-                      answers[next] === null
-                        ? null
-                        : answers[next] === QUICK_TEST_QUESTIONS[next].answer
-                    );
-                  } else {
-                    await completeQuickTestAttempt();
-                  }
+                  const prev = currentIndex - 1;
+                  setCurrentIndex(prev);
+                  await saveProgress(prev, partCompleted);
                 }}
-                className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2"
+                className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 font-extrabold text-white"
               >
-                {testIndex < QUICK_TEST_LENGTH - 1
-                  ? isTagalog
-                    ? "Susunod na Tanong"
-                    : "Next Question"
-                  : isTagalog
-                    ? checkpointNumber === 1
-                      ? "Magpatuloy sa 6–10"
-                      : "Tapusin"
-                    : checkpointNumber === 1
-                      ? "Continue to 6–10"
-                      : "Finish"}
-
-                <ArrowRight size={21} strokeWidth={3} />
+                <ArrowLeft size={21} />
+                {isTagalog ? "Nakaraan" : "Previous"}
               </button>
-            </div>
-          )}
-        </section>
-      </main>
-    );
-  }
+            ) : (
+              <span />
+            )}
 
-  // Standard Tutorial Mode View
-  return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      {/* SUB-HEADER BAR */}
-      <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/numbers")}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4]"
-          >
-            <ArrowLeft size={22} strokeWidth={2.5} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-              {isTagalog ? "Tutorial sa mga Numero (1–10)" : "Numbers Tutorial (1–10)"}
-            </h1>
-            <p className="text-sm font-medium text-slate-600 sm:text-base">
-              {isTagalog ? "Matutunan ang mga numerong 1–10 hakbang-hakbang." : "Learn numbers 1–10 step by step."}
-            </p>
+            <button
+              type="button"
+              onClick={handleNext}
+              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 font-extrabold text-[#A45CE8]"
+            >
+              {currentIndex === CHECKPOINT_AFTER_INDEX || isLast
+                ? "Quick Test"
+                : isTagalog
+                  ? "Susunod"
+                  : "Next"}
+              {currentIndex === CHECKPOINT_AFTER_INDEX || isLast ? <Check size={21} /> : <ArrowRight size={21} />}
+            </button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => toggleLanguage()}
-            className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700`}
-          >
-            <Languages size={22} />
-            <span>{isTagalog ? "TL" : "EN"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => toggleMusic()}
-            className={`${chunkyButton} ${isMusicActive ? "border-amber-300 bg-amber-100 text-amber-700" : "border-slate-300 bg-slate-100 text-slate-500"}`}
-          >
-            {isMusicActive ? <Volume2 size={22} /> : <VolumeX size={22} />}
-          </button>
         </div>
       </div>
+    );
+  };
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-        {syncBanner}
-        <div className="mb-4">
-          <p className="mb-2 text-sm font-extrabold text-[#164B9B]">
-            {isTagalog ? `Numero ${currentIndex + 1} ng ${total}` : `Number ${currentIndex + 1} of ${total}`}
-          </p>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
-            <div
-              className="h-full rounded-full bg-[#36A9F4]"
-              style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
-            />
-          </div>
+  return (
+    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+      {/* Background clouds */}
+      <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
+      <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
+
+      {isMobileView ? (
+        <div className="relative z-10 w-full">
+          {renderContent(false)}
         </div>
-
-        {/* NUMBER CHIPS */}
-        <div className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2">
-          {NUMBERS.map((num, position) => {
-            const isCurrent = position === currentIndex;
-            return (
-              <button
-                key={num}
-                ref={(el) => {
-                  chipRefs.current[position] = el;
-                }}
-                type="button"
-                onClick={async () => {
-                  if (currentIndex <= CHECKPOINT_AFTER_INDEX && position > CHECKPOINT_AFTER_INDEX) return;
-                  setCurrentIndex(position);
-                  await saveProgress(position, partCompleted);
-                }}
-                className={`flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black ${
-                  isCurrent
-                    ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
-                    : "border-[#B8DDF6] bg-white text-[#426A91]"
-                }`}
-              >
-                {num}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* TUTORIAL CARD */}
-        <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
-          <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
-            <video
-              ref={videoRef}
-              src="/videos/FSLnumbers.mp4"
-              controls
-              playsInline
-              preload="metadata"
-              onTimeUpdate={handleVideoTimeUpdate}
-              onPlay={handleVideoPlay}
-              className="h-full w-full object-contain"
-            />
-          </div>
-
-          <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-            <div className="flex flex-col items-center justify-center">
-              <span className="text-4xl font-black text-[#426A91] sm:text-5xl">
-                {isTagalog ? `Numero ${currentNumber}` : `Number ${currentNumber}`}
-              </span>
-            </div>
-            <div>
-              <h2 className="mb-1 text-lg font-black text-[#454545]">
-                {isTagalog ? "Paglalarawan:" : "Description:"}
-              </h2>
-              <p className="text-base leading-relaxed text-[#555555]">
-                {description}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleReplay}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 font-extrabold text-white sm:w-auto sm:px-6"
-            >
-              <RotateCcw size={20} />
-              {isTagalog ? "Panoorin ulit" : "Watch again"}
-            </button>
-          </div>
-        </div>
-
-        {/* NAVIGATION BUTTONS */}
-        <div className="mt-6 flex items-center justify-between gap-3">
-          {currentIndex > 0 ? (
-            <button
-              type="button"
-              onClick={async () => {
-                const prev = currentIndex - 1;
-                setCurrentIndex(prev);
-                await saveProgress(prev, partCompleted);
-              }}
-              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 font-extrabold text-white"
-            >
-              <ArrowLeft size={21} />
-              {isTagalog ? "Nakaraan" : "Previous"}
-            </button>
-          ) : (
-            <span />
-          )}
-
-          <button
-            type="button"
-            onClick={handleNext}
-            className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 font-extrabold text-[#A45CE8]"
+      ) : (
+        <div
+          ref={stageOuterRef}
+          className="relative z-10 w-full"
+          style={{ height: stageFit.height || undefined }}
+        >
+          <div
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top left",
+            }}
           >
-            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast
-              ? "Quick Test"
-              : isTagalog
-                ? "Susunod"
-                : "Next"}
-            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast ? <Check size={21} /> : <ArrowRight size={21} />}
-          </button>
+            {renderContent(true)}
+          </div>
         </div>
-      </section>
+      )}
     </main>
   );
 }

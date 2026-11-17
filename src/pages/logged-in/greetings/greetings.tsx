@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Lock, Play, Volume2, VolumeX, Languages } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -13,6 +13,86 @@ import ropeImage from "../../../assets/rope.svg";
 
 // Palitan ito ng tamang ruta ng championship kapag nagawa na
 const CHAMPIONSHIP_ROUTE = "/greetingschampionship";
+
+const PAGE_DESIGN_WIDTH = 1366;
+const PAGE_DESIGN_HEIGHT = 768;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, designHeight: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: designHeight });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = designHeight * scale;
+
+      setFit({ scale, height });
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+
+    return () => observer.disconnect();
+  }, [outer, enabled, designWidth, designHeight]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 // Shared "chunky 3D" button look
 const chunkyButton =
@@ -131,6 +211,13 @@ export default function GreetingsPage() {
 
   const isTagalog = language === "tl";
   const isMusicActive = isPlaying && volume > 0;
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, PAGE_DESIGN_HEIGHT, !isMobileView);
 
   const [part1Progress, setPart1Progress] = useState<TutorialProgress | null>(null);
   const [part2Progress, setPart2Progress] = useState<TutorialProgress | null>(null);
@@ -295,8 +382,8 @@ export default function GreetingsPage() {
     />
   );
 
-  return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+  const renderContent = (isDesktopView: boolean) => (
+    <div className={`relative w-full ${isDesktopView ? "h-[768px]" : "min-h-[700px] pb-24"}`}>
       {/* SUB-HEADER */}
       <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
         <div className="flex items-center gap-3">
@@ -380,6 +467,50 @@ export default function GreetingsPage() {
         </div>
       )}
 
+      {/* PHONES AND TABLETS / FALLBACK VIEW */}
+      {!isDesktopView && (
+        <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pt-8">
+          {islands.map((island, index) => (
+            <Fragment key={island.id}>
+              {index > 0 && (
+                <div
+                  aria-hidden="true"
+                  className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
+                />
+              )}
+              {renderIsland(island, index % 2 === 0 ? "self-start" : "self-end")}
+            </Fragment>
+          ))}
+        </div>
+      )}
+
+      {/* DESKTOP */}
+      {isDesktopView && (
+        <div className="absolute inset-0 block">
+          <img
+            src={ropeImage}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
+          />
+          <img
+            src={ropeImage}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
+          />
+          {islands.map((island) => (
+            <Fragment key={island.id}>
+              {renderIsland(island, `absolute ${island.position}`)}
+            </Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
       {/* Clouds */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
@@ -390,41 +521,27 @@ export default function GreetingsPage() {
       <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
       <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
-      {/* PHONES AND TABLETS */}
-      <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8 lg:hidden">
-        {islands.map((island, index) => (
-          <Fragment key={island.id}>
-            {index > 0 && (
-              <div
-                aria-hidden="true"
-                className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
-              />
-            )}
-            {renderIsland(island, index % 2 === 0 ? "self-start" : "self-end")}
-          </Fragment>
-        ))}
-      </div>
-
-      {/* DESKTOP */}
-      <div className="absolute inset-0 hidden lg:block">
-        <img
-          src={ropeImage}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
-        />
-        <img
-          src={ropeImage}
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
-        />
-        {islands.map((island) => (
-          <Fragment key={island.id}>
-            {renderIsland(island, `absolute ${island.position}`)}
-          </Fragment>
-        ))}
-      </div>
+      {isMobileView ? (
+        <div className="relative z-10 w-full">{renderContent(false)}</div>
+      ) : (
+        <div
+          ref={stageOuterRef}
+          className="relative z-10 w-full overflow-hidden"
+          style={{ height: stageFit.height || undefined }}
+        >
+          <div
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              height: PAGE_DESIGN_HEIGHT,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {renderContent(true)}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

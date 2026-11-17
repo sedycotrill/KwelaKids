@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useLayoutEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Award,
@@ -50,7 +50,91 @@ const CONFETTI = [
 ];
 
 const PASSING_PERCENTAGE = 75;
-const TOTAL_QUESTIONS = 20; // Binago sa 20 para sa mga numero
+const TOTAL_QUESTIONS = 20;
+
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 const NumbersComplete = () => {
   const navigate = useNavigate();
@@ -61,6 +145,14 @@ const NumbersComplete = () => {
 
   const isTagalog = language === "tl";
   const attemptId = searchParams.get("attempt");
+
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
 
   const [attempt, setAttempt] = useState<ChampionshipAttempt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,7 +195,6 @@ const NumbersComplete = () => {
       setLoading(true);
       setError(null);
 
-      // Tandaan: Palitan ang table name kung "numbers_assessment_attempts" o iba ang gamit mo
       const { data, error: fetchError } = await supabase
         .from("numbers_assessment_attempts")
         .select(
@@ -226,9 +317,211 @@ const NumbersComplete = () => {
     );
   }
 
+  // --------------------------------------------------
+  // RENDER CONTENT FUNCTION (ZOOM-PROOF)
+  // --------------------------------------------------
+
+  const renderContent = (_isDesktop: boolean) => (
+    <div className="relative z-10 w-full max-w-7xl flex flex-col lg:flex-row items-center lg:items-end justify-center gap-0">
+      {/* Confetti */}
+      <div className="pointer-events-none absolute inset-0">
+        {CONFETTI.map((piece, i) => (
+          <img
+            key={i}
+            src={confetti}
+            alt=""
+            className={`confetti-drift absolute opacity-90 ${piece.pos} ${piece.size}`}
+            style={{
+              animationDelay: `${piece.delay}s`,
+              rotate: `${piece.rotate}deg`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Girl Character */}
+      <div
+        className="relative flex justify-center z-20 shrink-0 -mb-6 lg:mb-0 lg:block lg:self-stretch lg:-mr-6
+                   lg:w-[calc(var(--girl-w)*0.63)]
+                   lg:[--girl-w:640px] xl:[--girl-w:860px] 2xl:[--girl-w:900px]"
+      >
+        <img
+          src={transitionGirl}
+          alt="Celebration character"
+          className="girl-float w-72 sm:w-80 md:w-96
+                     lg:absolute lg:bottom-0 lg:left-[calc(var(--girl-w)*-0.25)]
+                     lg:w-(--girl-w) lg:max-w-none
+                     object-contain drop-shadow-2xl"
+        />
+      </div>
+
+      {/* Result Card (Modal) */}
+      <div className="relative bg-white rounded-3xl shadow-sm border border-[#B8DDF6] p-6 sm:p-9 text-center w-full max-w-2xl z-10">
+        {/* Sparkles */}
+        <div className="pointer-events-none absolute -top-8 -left-6 sm:-top-12 sm:-left-10 lg:-top-16 lg:-left-14 z-30">
+          <img
+            src={sparkle1}
+            alt=""
+            className="sparkle-pulse w-16 sm:w-24 lg:w-32 xl:w-36"
+          />
+        </div>
+
+        <div className="pointer-events-none absolute -bottom-8 -right-6 sm:-bottom-12 sm:-right-10 lg:-bottom-16 lg:-right-14 z-30">
+          <img
+            src={sparkle2}
+            alt=""
+            className="sparkle-pulse w-16 sm:w-24 lg:w-32 xl:w-36"
+            style={{ animationDelay: "0.8s" }}
+          />
+        </div>
+
+        {/* Greeting */}
+        <div className="flex justify-center mb-3">
+          <div className="bg-amber-100 p-3 rounded-2xl">
+            <Award className="w-9 h-9 text-amber-500" />
+          </div>
+        </div>
+
+        <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-[#36A9F4] mb-2">
+          {isTagalog ? "NUMBERS CHAMPIONSHIP RESULTA" : "NUMBERS CHAMPIONSHIP RESULTS"}
+        </p>
+
+        <h1 className="text-3xl sm:text-4xl font-black text-[#164B9B] mb-2">
+          {passed
+            ? isTagalog
+              ? "MAGALING!"
+              : "WELL DONE!"
+            : isTagalog
+              ? "HUWAG SUSUKO!"
+              : "KEEP TRYING!"}
+        </h1>
+
+        <p className="text-slate-600 font-medium text-sm sm:text-base mb-6">
+          {isTagalog
+            ? `Magaling, ${userName}! Narito ang iyong resulta sa Numbers Championship.`
+            : `Great effort, ${userName}! Here is your Numbers Championship result.`}
+        </p>
+
+        {/* Pass / Fail status */}
+        <div
+          className={`rounded-2xl border px-5 py-4 mb-5 ${
+            passed
+              ? "bg-emerald-50 border-emerald-200"
+              : "bg-rose-50 border-rose-200"
+          }`}
+        >
+          <p
+            className={`text-xl sm:text-2xl font-black ${
+              passed ? "text-emerald-700" : "text-rose-700"
+            }`}
+          >
+            {passed
+              ? isTagalog
+                ? "NAIPASA MO ANG CHAMPIONSHIP!"
+                : "CHAMPIONSHIP PASSED!"
+              : isTagalog
+                ? "HINDI PA NAIPASA"
+                : "CHAMPIONSHIP NOT PASSED"}
+          </p>
+
+          <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
+            {isTagalog
+              ? "Kailangan ng hindi bababa sa 75% upang makapasa."
+              : "You need at least 75% to pass."}
+          </p>
+        </div>
+
+        {/* Score */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4">
+            <p className="text-xs sm:text-sm font-black text-[#164B9B] mb-1 uppercase tracking-wide">
+              {isTagalog ? "TAMANG SAGOT" : "CORRECT ANSWERS"}
+            </p>
+
+            <p className="text-3xl sm:text-4xl font-black text-[#164B9B]">
+              {score}
+              <span className="text-base font-extrabold text-sky-400">
+                /{totalQuestions}
+              </span>
+            </p>
+          </div>
+
+          <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
+            <p className="text-xs sm:text-sm font-black text-[#A45CE8] mb-1 uppercase tracking-wide">
+              {isTagalog ? "PORSYENTO" : "PERCENTAGE"}
+            </p>
+
+            <p className="text-3xl sm:text-4xl font-black text-[#A45CE8]">
+              {percentage}%
+            </p>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mb-7">
+          <div className="flex justify-between text-xs sm:text-sm font-extrabold text-slate-500 mb-2">
+            <span>{isTagalog ? "Iyong marka" : "Your score"}</span>
+            <span>
+              {isTagalog ? "Pamantayan: 75%" : "Passing score: 75%"}
+            </span>
+          </div>
+
+          <div className="h-3.5 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${
+                passed ? "bg-emerald-500" : "bg-rose-500"
+              }`}
+              style={{
+                width: `${Math.min(100, Math.max(0, percentage))}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={handleTryAgain}
+            className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 py-3.5 px-4 font-black text-white shadow-sm transition-all hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+          >
+            <RotateCcw className="w-5 h-5" strokeWidth={2.5} />
+            {isTagalog ? "SUBUKAN MULI" : "TRY AGAIN"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSummary}
+            className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] py-3.5 px-4 font-black text-[#A45CE8] shadow-sm transition-all hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2"
+          >
+            <BookOpen className="w-5 h-5" strokeWidth={2.5} />
+            {isTagalog ? "BUOD" : "SUMMARY"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePreviousRecords}
+            className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] py-3.5 px-4 font-black text-white shadow-sm transition-all hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2"
+          >
+            <History className="w-5 h-5" strokeWidth={2.5} />
+            {isTagalog ? "Mga NAKARAANG RECORD" : "PREVIOUS RECORDS"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExit}
+            className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 py-3.5 px-4 font-black text-slate-700 shadow-sm transition-all hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
+          >
+            <LogOut className="w-5 h-5" strokeWidth={2.5} />
+            {isTagalog ? "BUMALIK SA MGA NUMERO" : "BACK TO NUMBERS"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] flex flex-col items-center justify-center px-4 py-12">
-
       <style>
         {`
           @keyframes confettiDrift {
@@ -274,208 +567,28 @@ const NumbersComplete = () => {
         `}
       </style>
 
-      {/* Main Container */}
-      <div className="relative z-10 w-full max-w-7xl flex flex-col lg:flex-row items-center lg:items-end justify-center gap-0">
-
-        {/* Confetti */}
-        <div className="pointer-events-none absolute inset-0">
-          {CONFETTI.map((piece, i) => (
-            <img
-              key={i}
-              src={confetti}
-              alt=""
-              className={`confetti-drift absolute opacity-90 ${piece.pos} ${piece.size}`}
-              style={{
-                animationDelay: `${piece.delay}s`,
-                rotate: `${piece.rotate}deg`,
-              }}
-            />
-          ))}
+      {isMobileView ? (
+        <div className="relative z-10 w-full flex flex-col items-center">
+          {renderContent(false)}
         </div>
-
-        {/* Girl Character */}
+      ) : (
         <div
-          className="relative flex justify-center z-20 shrink-0 -mb-6 lg:mb-0 lg:block lg:self-stretch lg:-mr-6
-                     lg:w-[calc(var(--girl-w)*0.63)]
-                     lg:[--girl-w:640px] xl:[--girl-w:860px] 2xl:[--girl-w:900px]"
+          ref={stageOuterRef}
+          className="relative z-10 w-full flex items-center justify-center"
+          style={{ height: stageFit.height || undefined }}
         >
-          <img
-            src={transitionGirl}
-            alt="Celebration character"
-            className="girl-float w-72 sm:w-80 md:w-96
-                       lg:absolute lg:bottom-0 lg:left-[calc(var(--girl-w)*-0.25)]
-                       lg:w-(--girl-w) lg:max-w-none
-                       object-contain drop-shadow-2xl"
-          />
-        </div>
-
-        {/* Result Card (Modal) */}
-        <div className="relative bg-white rounded-3xl shadow-sm border border-[#B8DDF6] p-6 sm:p-9 text-center w-full max-w-2xl z-10">
-
-          {/* Sparkles */}
-          <div className="pointer-events-none absolute -top-8 -left-6 sm:-top-12 sm:-left-10 lg:-top-16 lg:-left-14 z-30">
-            <img
-              src={sparkle1}
-              alt=""
-              className="sparkle-pulse w-16 sm:w-24 lg:w-32 xl:w-36"
-            />
-          </div>
-
-          <div className="pointer-events-none absolute -bottom-8 -right-6 sm:-bottom-12 sm:-right-10 lg:-bottom-16 lg:-right-14 z-30">
-            <img
-              src={sparkle2}
-              alt=""
-              className="sparkle-pulse w-16 sm:w-24 lg:w-32 xl:w-36"
-              style={{ animationDelay: "0.8s" }}
-            />
-          </div>
-
-          {/* Greeting */}
-          <div className="flex justify-center mb-3">
-            <div className="bg-amber-100 p-3 rounded-2xl">
-              <Award className="w-9 h-9 text-amber-500" />
-            </div>
-          </div>
-
-          <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-[#36A9F4] mb-2">
-            {isTagalog ? "NUMBERS CHAMPIONSHIP RESULTA" : "NUMBERS CHAMPIONSHIP RESULTS"}
-          </p>
-
-          <h1 className="text-3xl sm:text-4xl font-black text-[#164B9B] mb-2">
-            {passed
-              ? isTagalog
-                ? "MAGALING!"
-                : "WELL DONE!"
-              : isTagalog
-                ? "HUWAG SUSUKO!"
-                : "KEEP TRYING!"}
-          </h1>
-
-          <p className="text-slate-600 font-medium text-sm sm:text-base mb-6">
-            {isTagalog
-              ? `Magaling, ${userName}! Narito ang iyong resulta sa Numbers Championship.`
-              : `Great effort, ${userName}! Here is your Numbers Championship result.`}
-          </p>
-
-          {/* Pass / Fail status */}
           <div
-            className={`rounded-2xl border px-5 py-4 mb-5 ${
-              passed
-                ? "bg-emerald-50 border-emerald-200"
-                : "bg-rose-50 border-rose-200"
-            }`}
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top center",
+            }}
           >
-            <p
-              className={`text-xl sm:text-2xl font-black ${
-                passed ? "text-emerald-700" : "text-rose-700"
-              }`}
-            >
-              {passed
-                ? isTagalog
-                  ? "NAIPASA MO ANG CHAMPIONSHIP!"
-                  : "CHAMPIONSHIP PASSED!"
-                : isTagalog
-                  ? "HINDI PA NAIPASA"
-                  : "CHAMPIONSHIP NOT PASSED"}
-            </p>
-
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              {isTagalog
-                ? "Kailangan ng hindi bababa sa 75% upang makapasa."
-                : "You need at least 75% to pass."}
-            </p>
-          </div>
-
-          {/* Score */}
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4">
-              <p className="text-xs sm:text-sm font-black text-[#164B9B] mb-1 uppercase tracking-wide">
-                {isTagalog ? "TAMANG SAGOT" : "CORRECT ANSWERS"}
-              </p>
-
-              <p className="text-3xl sm:text-4xl font-black text-[#164B9B]">
-                {score}
-                <span className="text-base font-extrabold text-sky-400">
-                  /{totalQuestions}
-                </span>
-              </p>
-            </div>
-
-            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
-              <p className="text-xs sm:text-sm font-black text-[#A45CE8] mb-1 uppercase tracking-wide">
-                {isTagalog ? "PORSYENTO" : "PERCENTAGE"}
-              </p>
-
-              <p className="text-3xl sm:text-4xl font-black text-[#A45CE8]">
-                {percentage}%
-              </p>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mb-7">
-            <div className="flex justify-between text-xs sm:text-sm font-extrabold text-slate-500 mb-2">
-              <span>{isTagalog ? "Iyong marka" : "Your score"}</span>
-              <span>
-                {isTagalog ? "Pamantayan: 75%" : "Passing score: 75%"}
-              </span>
-            </div>
-
-            <div className="h-3.5 w-full rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ${
-                  passed ? "bg-emerald-500" : "bg-rose-500"
-                }`}
-                style={{
-                  width: `${Math.min(100, Math.max(0, percentage))}%`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-            <button
-              type="button"
-              onClick={handleTryAgain}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 py-3.5 px-4 font-black text-white shadow-sm transition-all hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
-            >
-              <RotateCcw className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "SUBUKAN MULI" : "TRY AGAIN"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSummary}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] py-3.5 px-4 font-black text-[#A45CE8] shadow-sm transition-all hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2"
-            >
-              <BookOpen className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "BUOD" : "SUMMARY"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePreviousRecords}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] py-3.5 px-4 font-black text-white shadow-sm transition-all hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2"
-            >
-              <History className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "Mga NAKARAANG RECORD" : "PREVIOUS RECORDS"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExit}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 py-3.5 px-4 font-black text-slate-700 shadow-sm transition-all hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
-            >
-              <LogOut className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "BUMALIK SA MGA NUMERO" : "BACK TO NUMBERS"}
-            </button>
-
+            {renderContent(true)}
           </div>
         </div>
-
-      </div>
+      )}
 
       <p className="text-center text-xs sm:text-sm text-[#164B9B] font-bold mt-6 relative z-10">
         {isTagalog

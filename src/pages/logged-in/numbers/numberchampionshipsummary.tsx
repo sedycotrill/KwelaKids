@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useLayoutEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -49,8 +49,92 @@ type ChampionshipAttempt = {
   status: string;
 };
 
-const TOTAL_QUESTIONS = 20; // Binago sa 20 para sa mga numero
+const TOTAL_QUESTIONS = 20;
 const PASSING_PERCENTAGE = 75;
+
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 export default function NumbersChampionshipSummary() {
   const navigate = useNavigate();
@@ -61,6 +145,14 @@ export default function NumbersChampionshipSummary() {
 
   const isTagalog = language === "tl";
   const attemptId = searchParams.get("attempt");
+
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
 
   const [attempt, setAttempt] = useState<ChampionshipAttempt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +191,6 @@ export default function NumbersChampionshipSummary() {
       }
 
       try {
-        // Tandaan: Palitan ang table name kung "numbers_assessment_attempts" o iba ang gamit mo
         const { data, error: fetchError } = await supabase
           .from("numbers_assessment_attempts")
           .select(`
@@ -132,7 +223,6 @@ export default function NumbersChampionshipSummary() {
         const questions = data.questions as ChampionshipQuestion[];
         const answers = data.answers as ChampionshipAnswer[];
 
-        // Validate the saved question and answer arrays.
         if (
           !Array.isArray(questions) ||
           !Array.isArray(answers) ||
@@ -146,7 +236,6 @@ export default function NumbersChampionshipSummary() {
           );
         }
 
-        // Validate question properties.
         const validQuestions = questions.every(
           (question) =>
             question &&
@@ -165,7 +254,6 @@ export default function NumbersChampionshipSummary() {
           );
         }
 
-        // Validate answer properties.
         const validAnswers = answers.every(
           (answer) =>
             answer &&
@@ -184,7 +272,6 @@ export default function NumbersChampionshipSummary() {
           );
         }
 
-        // Ensure every question has a unique ID.
         const questionIds = new Set(
           questions.map((question) => question.id)
         );
@@ -197,7 +284,6 @@ export default function NumbersChampionshipSummary() {
           );
         }
 
-        // Ensure every question has exactly one corresponding answer.
         const answerIds = new Set(
           answers.map((answer) => answer.question_id)
         );
@@ -222,7 +308,6 @@ export default function NumbersChampionshipSummary() {
           );
         }
 
-        // Validate the saved score.
         const savedScore = Number(data.score);
         const savedTotal = Number(data.total_questions);
 
@@ -276,7 +361,6 @@ export default function NumbersChampionshipSummary() {
     };
   }, [attemptId, user?.id, authLoading, isTagalog]);
 
-  // Match each answer with its original question.
   const incorrectAnswers = useMemo<IncorrectAnswer[]>(() => {
     if (!attempt) return [];
 
@@ -328,7 +412,6 @@ export default function NumbersChampionshipSummary() {
 
   const passed = percentage >= PASSING_PERCENTAGE;
 
-  // Navigation
   const handleBack = () => {
     if (!attemptId) {
       navigate("/numbers");
@@ -348,7 +431,6 @@ export default function NumbersChampionshipSummary() {
     navigate("/numbers");
   };
 
-  // Loading screen
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
@@ -363,7 +445,6 @@ export default function NumbersChampionshipSummary() {
     );
   }
 
-  // Error screen
   if (error || !attempt) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-6">
@@ -399,312 +480,328 @@ export default function NumbersChampionshipSummary() {
     );
   }
 
+  // --------------------------------------------------
+  // RENDER CONTENT FUNCTION (ZOOM-PROOF)
+  // --------------------------------------------------
+
+  const renderContent = (_isDesktop: boolean) => (
+    <div className="relative z-10 mx-auto max-w-4xl">
+      {/* Back to result */}
+      <button
+        type="button"
+        onClick={handleBack}
+        className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+      >
+        <ArrowLeft size={20} strokeWidth={2.5} />
+
+        <span>
+          {isTagalog
+            ? "Bumalik sa Resulta"
+            : "Back to Results"}
+        </span>
+      </button>
+
+      {/* Summary header and score */}
+      <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
+        <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-6 py-8 text-center text-white sm:px-10">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
+            <BookOpen size={34} />
+          </div>
+
+          <h1 className="text-3xl font-black sm:text-4xl">
+            {isTagalog
+              ? "Buod ng Numbers Championship"
+              : "Numbers Championship Summary"}
+          </h1>
+
+          <p className="mt-2 text-sm text-sky-100 font-medium sm:text-base">
+            {isTagalog
+              ? "Suriin ang mga sagot na kailangan mo pang pag-aralan."
+              : "Review the answers you need to study further."}
+          </p>
+        </div>
+
+        {/* Score cards */}
+        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
+          <div className="rounded-2xl bg-sky-50 border border-sky-100 p-5 text-center">
+            <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
+              {isTagalog
+                ? "Kabuuang Tanong"
+                : "Total Questions"}
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-[#164B9B]">
+              {attempt.total_questions}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-5 text-center">
+            <p className="text-xs font-black text-emerald-700 uppercase tracking-wide">
+              {isTagalog
+                ? "Tamang Sagot"
+                : "Correct Answers"}
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-emerald-700">
+              {correctCount}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-rose-50 border border-rose-100 p-5 text-center">
+            <p className="text-xs font-black text-rose-700 uppercase tracking-wide">
+              {isTagalog
+                ? "Maling Sagot"
+                : "Incorrect Answers"}
+            </p>
+
+            <p className="mt-2 text-3xl font-black text-rose-700">
+              {incorrectAnswers.length}
+            </p>
+          </div>
+        </div>
+
+        {/* Percentage and progress */}
+        <div className="px-6 pb-7 sm:px-8">
+          <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-slate-500">
+            <span>
+              {isTagalog ? "Iyong Iskor" : "Your Score"}
+            </span>
+
+            <span>
+              {attempt.score}/{attempt.total_questions} ({percentage}%)
+            </span>
+          </div>
+
+          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className={`h-full rounded-full transition-all ${
+                passed
+                  ? "bg-emerald-500"
+                  : "bg-rose-500"
+              }`}
+              style={{
+                width: `${Math.min(100, Math.max(0, percentage))}%`,
+              }}
+            />
+          </div>
+
+          <div className="mt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black ${
+                passed
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-rose-100 text-rose-700"
+              }`}
+            >
+              {passed ? (
+                <Trophy size={16} />
+              ) : (
+                <RotateCcw size={16} />
+              )}
+
+              {passed
+                ? isTagalog
+                  ? "NAIPASA"
+                  : "PASSED"
+                : isTagalog
+                  ? "HINDI NAIPASA"
+                  : "NOT PASSED"}
+            </span>
+
+            <span className="text-xs font-medium text-slate-500">
+              {isTagalog
+                ? "Pamantayan sa pagpasa: 75%"
+                : "Passing requirement: 75%"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Incorrect answers */}
+      {incorrectAnswers.length === 0 ? (
+        <div className="rounded-3xl border border-[#B8DDF6] bg-white p-8 text-center shadow-sm sm:p-12">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-100">
+            <Trophy className="h-10 w-10 text-emerald-600" />
+          </div>
+
+          <h2 className="text-2xl font-black text-[#164B9B]">
+            {isTagalog
+              ? "Perpektong Iskor!"
+              : "Perfect Score!"}
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-md text-slate-600 font-medium">
+            {isTagalog
+              ? "Tama ang lahat ng iyong sagot. Mahusay ang iyong ginawa sa Numbers Championship!"
+              : "You answered every question correctly. Excellent work in the Numbers Championship!"}
+          </p>
+        </div>
+      ) : (
+        <section>
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+              <XCircle className="h-6 w-6" />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-black text-[#164B9B]">
+                {isTagalog
+                  ? "Mga Sagot na Mali"
+                  : "Incorrect Answers"}
+              </h2>
+
+              <p className="text-sm font-medium text-slate-600">
+                {isTagalog
+                  ? "Ito ang mga numero na kailangan mong balikan."
+                  : "These are the numbers you should review."}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {incorrectAnswers.map((item) => (
+              <article
+                key={item.question.id}
+                className="overflow-hidden rounded-3xl border border-[#B8DDF6] bg-white shadow-sm"
+              >
+                {/* Question number */}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-4">
+                  <span className="font-extrabold text-slate-700 text-sm">
+                    {isTagalog ? "Tanong" : "Question"}{" "}
+                    {item.questionNumber}
+                  </span>
+
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
+                    <XCircle size={14} />
+
+                    {isTagalog ? "Mali" : "Incorrect"}
+                  </span>
+                </div>
+
+                <div className="p-5 sm:p-6">
+                  {/* Question text */}
+                  <p className="mb-5 font-bold leading-relaxed text-[#454545]">
+                    {isTagalog
+                      ? item.question.question_tl
+                      : item.question.question_en}
+                  </p>
+
+                  {/* Number / Letter representation */}
+                  <div className="mb-5 flex justify-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50 border border-sky-100 text-3xl font-black text-[#164B9B]">
+                      {item.question.letter}
+                    </div>
+                  </div>
+
+                  {/* Answer comparison */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {/* User's answer */}
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                      <div className="mb-1 flex items-center gap-2 text-xs font-black text-rose-700 uppercase tracking-wide">
+                        <XCircle size={16} />
+
+                        {isTagalog
+                          ? "Iyong Sagot"
+                          : "Your Answer"}
+                      </div>
+
+                      <p className="text-2xl font-black text-rose-700 wrap-break-word">
+                        {item.answer.selected_answer}
+                      </p>
+                    </div>
+
+                    {/* Correct answer */}
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                      <div className="mb-1 flex items-center gap-2 text-xs font-black text-emerald-700 uppercase tracking-wide">
+                        <CheckCircle2 size={16} />
+
+                        {isTagalog
+                          ? "Tamang Sagot"
+                          : "Correct Answer"}
+                      </div>
+
+                      <p className="text-2xl font-black text-emerald-700 wrap-break-word">
+                        {item.answer.correct_answer ||
+                          item.question.answer}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Bottom navigation */}
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-6 py-4 font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+        >
+          <ArrowLeft size={20} strokeWidth={2.5} />
+
+          {isTagalog
+            ? "Bumalik sa Resulta"
+            : "Back to Results"}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleTryAgain}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-4 font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+        >
+          <RotateCcw size={20} strokeWidth={2.5} />
+
+          {isTagalog
+            ? "Subukan Muli"
+            : "Try Again"}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleExit}
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 px-6 py-4 font-black text-slate-700 transition hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
+        >
+          <LogOut size={20} strokeWidth={2.5} />
+
+          {isTagalog
+            ? "Lumabas"
+            : "Exit"}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-4 py-8 sm:px-6">
-
       {/* Background decorative elements */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
 
-      <div className="relative z-10 mx-auto max-w-4xl">
-
-        {/* Back to result */}
-        <button
-          type="button"
-          onClick={handleBack}
-          className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+      {isMobileView ? (
+        <div className="relative z-10 w-full">
+          {renderContent(false)}
+        </div>
+      ) : (
+        <div
+          ref={stageOuterRef}
+          className="relative z-10 w-full"
+          style={{ height: stageFit.height || undefined }}
         >
-          <ArrowLeft size={20} strokeWidth={2.5} />
-
-          <span>
-            {isTagalog
-              ? "Bumalik sa Resulta"
-              : "Back to Results"}
-          </span>
-        </button>
-
-        {/* Summary header and score */}
-        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
-
-          <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-6 py-8 text-center text-white sm:px-10">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
-              <BookOpen size={34} />
-            </div>
-
-            <h1 className="text-3xl font-black sm:text-4xl">
-              {isTagalog
-                ? "Buod ng Numbers Championship"
-                : "Numbers Championship Summary"}
-            </h1>
-
-            <p className="mt-2 text-sm text-sky-100 font-medium sm:text-base">
-              {isTagalog
-                ? "Suriin ang mga sagot na kailangan mo pang pag-aralan."
-                : "Review the answers you need to study further."}
-            </p>
-          </div>
-
-          {/* Score cards */}
-          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
-
-            <div className="rounded-2xl bg-sky-50 border border-sky-100 p-5 text-center">
-              <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
-                {isTagalog
-                  ? "Kabuuang Tanong"
-                  : "Total Questions"}
-              </p>
-
-              <p className="mt-2 text-3xl font-black text-[#164B9B]">
-                {attempt.total_questions}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-5 text-center">
-              <p className="text-xs font-black text-emerald-700 uppercase tracking-wide">
-                {isTagalog
-                  ? "Tamang Sagot"
-                  : "Correct Answers"}
-              </p>
-
-              <p className="mt-2 text-3xl font-black text-emerald-700">
-                {correctCount}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-rose-50 border border-rose-100 p-5 text-center">
-              <p className="text-xs font-black text-rose-700 uppercase tracking-wide">
-                {isTagalog
-                  ? "Maling Sagot"
-                  : "Incorrect Answers"}
-              </p>
-
-              <p className="mt-2 text-3xl font-black text-rose-700">
-                {incorrectAnswers.length}
-              </p>
-            </div>
-
-          </div>
-
-          {/* Percentage and progress */}
-          <div className="px-6 pb-7 sm:px-8">
-
-            <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-slate-500">
-              <span>
-                {isTagalog ? "Iyong Iskor" : "Your Score"}
-              </span>
-
-              <span>
-                {attempt.score}/{attempt.total_questions} ({percentage}%)
-              </span>
-            </div>
-
-            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  passed
-                    ? "bg-emerald-500"
-                    : "bg-rose-500"
-                }`}
-                style={{
-                  width: `${Math.min(100, Math.max(0, percentage))}%`,
-                }}
-              />
-            </div>
-
-            <div className="mt-4 flex flex-col items-center justify-between gap-2 sm:flex-row">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black ${
-                  passed
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-rose-100 text-rose-700"
-                }`}
-              >
-                {passed ? (
-                  <Trophy size={16} />
-                ) : (
-                  <RotateCcw size={16} />
-                )}
-
-                {passed
-                  ? isTagalog
-                    ? "NAIPASA"
-                    : "PASSED"
-                  : isTagalog
-                    ? "HINDI NAIPASA"
-                    : "NOT PASSED"}
-              </span>
-
-              <span className="text-xs font-medium text-slate-500">
-                {isTagalog
-                  ? "Pamantayan sa pagpasa: 75%"
-                  : "Passing requirement: 75%"}
-              </span>
-            </div>
+          <div
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {renderContent(true)}
           </div>
         </div>
-
-        {/* Incorrect answers */}
-        {incorrectAnswers.length === 0 ? (
-          <div className="rounded-3xl border border-[#B8DDF6] bg-white p-8 text-center shadow-sm sm:p-12">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-100">
-              <Trophy className="h-10 w-10 text-emerald-600" />
-            </div>
-
-            <h2 className="text-2xl font-black text-[#164B9B]">
-              {isTagalog
-                ? "Perpektong Iskor!"
-                : "Perfect Score!"}
-            </h2>
-
-            <p className="mx-auto mt-2 max-w-md text-slate-600 font-medium">
-              {isTagalog
-                ? "Tama ang lahat ng iyong sagot. Mahusay ang iyong ginawa sa Numbers Championship!"
-                : "You answered every question correctly. Excellent work in the Numbers Championship!"}
-            </p>
-          </div>
-        ) : (
-          <section>
-
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
-                <XCircle className="h-6 w-6" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-black text-[#164B9B]">
-                  {isTagalog
-                    ? "Mga Sagot na Mali"
-                    : "Incorrect Answers"}
-                </h2>
-
-                <p className="text-sm font-medium text-slate-600">
-                  {isTagalog
-                    ? "Ito ang mga numero na kailangan mong balikan."
-                    : "These are the numbers you should review."}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {incorrectAnswers.map((item) => (
-                <article
-                  key={item.question.id}
-                  className="overflow-hidden rounded-3xl border border-[#B8DDF6] bg-white shadow-sm"
-                >
-
-                  {/* Question number */}
-                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-4">
-                    <span className="font-extrabold text-slate-700 text-sm">
-                      {isTagalog ? "Tanong" : "Question"}{" "}
-                      {item.questionNumber}
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
-                      <XCircle size={14} />
-
-                      {isTagalog ? "Mali" : "Incorrect"}
-                    </span>
-                  </div>
-
-                  <div className="p-5 sm:p-6">
-
-                    {/* Question text */}
-                    <p className="mb-5 font-bold leading-relaxed text-[#454545]">
-                      {isTagalog
-                        ? item.question.question_tl
-                        : item.question.question_en}
-                    </p>
-
-                    {/* Number / Letter representation */}
-                    <div className="mb-5 flex justify-center">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50 border border-sky-100 text-3xl font-black text-[#164B9B]">
-                        {item.question.letter}
-                      </div>
-                    </div>
-
-                    {/* Answer comparison */}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-
-                      {/* User's answer */}
-                      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                        <div className="mb-1 flex items-center gap-2 text-xs font-black text-rose-700 uppercase tracking-wide">
-                          <XCircle size={16} />
-
-                          {isTagalog
-                            ? "Iyong Sagot"
-                            : "Your Answer"}
-                        </div>
-
-                        <p className="text-2xl font-black text-rose-700 wrap-break-word">
-                          {item.answer.selected_answer}
-                        </p>
-                      </div>
-
-                      {/* Correct answer */}
-                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                        <div className="mb-1 flex items-center gap-2 text-xs font-black text-emerald-700 uppercase tracking-wide">
-                          <CheckCircle2 size={16} />
-
-                          {isTagalog
-                            ? "Tamang Sagot"
-                            : "Correct Answer"}
-                        </div>
-
-                        <p className="text-2xl font-black text-emerald-700 wrap-break-word">
-                          {item.answer.correct_answer ||
-                            item.question.answer}
-                        </p>
-                      </div>
-
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Bottom navigation */}
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-
-          <button
-            type="button"
-            onClick={handleBack}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-6 py-4 font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
-          >
-            <ArrowLeft size={20} strokeWidth={2.5} />
-
-            {isTagalog
-              ? "Bumalik sa Resulta"
-              : "Back to Results"}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleTryAgain}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-4 font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
-          >
-            <RotateCcw size={20} strokeWidth={2.5} />
-
-            {isTagalog
-              ? "Subukan Muli"
-              : "Try Again"}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExit}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 px-6 py-4 font-black text-slate-700 transition hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
-          >
-            <LogOut size={20} strokeWidth={2.5} />
-
-            {isTagalog
-              ? "Lumabas"
-              : "Exit"}
-          </button>
-
-        </div>
-      </div>
+      )}
     </main>
   );
 }

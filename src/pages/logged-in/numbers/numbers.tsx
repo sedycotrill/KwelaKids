@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Lock, Play, Volume2, VolumeX, Languages } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -12,6 +12,90 @@ import ropeImage from "../../../assets/rope.svg";
 
 // Update this if your Championship component uses a different route.
 const CHAMPIONSHIP_ROUTE = "/numberchampionship";
+
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 // Shared "chunky 3D" button look
 const chunkyButton =
@@ -140,6 +224,14 @@ export default function NumbersPage() {
 
     const isTagalog = language === "tl";
     const isMusicActive = isPlaying && volume > 0;
+
+    const isMobileView = useIsMobileView();
+
+    const {
+        outerRef: stageOuterRef,
+        innerRef: stageInnerRef,
+        fit: stageFit,
+    } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
 
     // Independent progress for each tutorial part.
     const [part1Progress, setPart1Progress] =
@@ -370,9 +462,8 @@ export default function NumbersPage() {
         />
     );
 
-    return (
-        <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-
+    const renderContent = (isDesktop: boolean) => (
+        <div className="relative w-full min-h-[700px]">
             {/* SUB-HEADER */}
             <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
                 <div className="flex items-center gap-3">
@@ -481,55 +572,81 @@ export default function NumbersPage() {
 
             <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
-            {/* PHONES AND TABLETS: islands stacked in a zigzag path */}
-            <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8 lg:hidden">
-                {islands.map((island, index) => (
-                    <Fragment key={island.id}>
-                        {index > 0 && (
-                            <div
-                                aria-hidden="true"
-                                className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
-                            />
-                        )}
+            {!isDesktop ? (
+                /* PHONES AND TABLETS: islands stacked in a zigzag path */
+                <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8">
+                    {islands.map((island, index) => (
+                        <Fragment key={island.id}>
+                            {index > 0 && (
+                                <div
+                                    aria-hidden="true"
+                                    className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
+                                />
+                            )}
 
-                        {renderIsland(
-                            island,
-                            index % 2 === 0
-                                ? "self-start"
-                                : "self-end"
-                        )}
-                    </Fragment>
-                ))}
-            </div>
+                            {renderIsland(
+                                island,
+                                index % 2 === 0
+                                    ? "self-start"
+                                    : "self-end"
+                            )}
+                        </Fragment>
+                    ))}
+                </div>
+            ) : (
+                /* DESKTOP: original map with ropes */
+                <div className="absolute inset-0 block">
+                    {/* Rope 1: Part 1 to Part 2 */}
+                    <img
+                        src={ropeImage}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
+                    />
 
-            {/* DESKTOP: original map with ropes */}
-            <div className="absolute inset-0 hidden lg:block">
+                    {/* Rope 2: Part 2 to Championship */}
+                    <img
+                        src={ropeImage}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
+                    />
 
-                {/* Rope 1: Part 1 to Part 2 */}
-                <img
-                    src={ropeImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
-                />
+                    {islands.map((island) => (
+                        <Fragment key={island.id}>
+                            {renderIsland(
+                                island,
+                                `absolute ${island.position}`
+                            )}
+                        </Fragment>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
-                {/* Rope 2: Part 2 to Championship */}
-                <img
-                    src={ropeImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
-                />
-
-                {islands.map((island) => (
-                    <Fragment key={island.id}>
-                        {renderIsland(
-                            island,
-                            `absolute ${island.position}`
-                        )}
-                    </Fragment>
-                ))}
-            </div>
+    return (
+        <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+            {isMobileView ? (
+                <div>{renderContent(false)}</div>
+            ) : (
+                <div
+                    ref={stageOuterRef}
+                    className="relative z-10 w-full"
+                    style={{ height: stageFit.height || undefined }}
+                >
+                    <div
+                        ref={stageInnerRef}
+                        style={{
+                            width: PAGE_DESIGN_WIDTH,
+                            transform: `scale(${stageFit.scale})`,
+                            transformOrigin: "top left",
+                        }}
+                    >
+                        {renderContent(true)}
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

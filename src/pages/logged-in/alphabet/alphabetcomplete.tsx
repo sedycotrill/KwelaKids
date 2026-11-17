@@ -58,6 +58,90 @@ const CONFETTI = [
 const PASSING_PERCENTAGE = 75;
 const TOTAL_QUESTIONS = 26;
 
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
+
 const AlphabetComplete = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -67,6 +151,14 @@ const AlphabetComplete = () => {
 
   const isTagalog = language === "tl";
   const attemptId = searchParams.get("attempt");
+
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
 
   const [attempt, setAttempt] = useState<ChampionshipAttempt | null>(null);
   const [loading, setLoading] = useState(true);
@@ -231,9 +323,8 @@ const AlphabetComplete = () => {
     );
   }
 
-  return (
-    <main className="relative min-h-screen overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] flex flex-col items-center justify-center px-4 py-12">
-
+  const renderContent = (_isDesktop: boolean) => (
+    <div className="flex flex-col items-center justify-center">
       <style>
         {`
           @keyframes confettiDrift {
@@ -298,12 +389,7 @@ const AlphabetComplete = () => {
           ))}
         </div>
 
-        {/*
-          Girl: ang SVG ay may transparent na espasyo sa paligid niya, kaya
-          naka-absolute ang image at ang wrapper ay kasing lapad lang ng mismong
-          girl (≈63% ng --girl-w). Ang taas ay sumusunod sa modal (self-stretch),
-          at naka-align sa ibaba. Palitan lang ang --girl-w para palakihin/paliitin.
-        */}
+        {/* Girl wrapper */}
         <div
           className="relative flex justify-center z-20 shrink-0 -mb-6 lg:mb-0 lg:block lg:self-stretch lg:-mr-6
                      lg:w-[calc(var(--girl-w)*0.63)]
@@ -322,7 +408,7 @@ const AlphabetComplete = () => {
         {/* Result Card (Modal) */}
         <div className="relative bg-white rounded-3xl shadow-sm border border-[#B8DDF6] p-6 sm:p-9 text-center w-full max-w-2xl z-10">
 
-          {/* Sparkles: nakadikit sa mga sulok ng modal */}
+          {/* Sparkles */}
           <div className="pointer-events-none absolute -top-8 -left-6 sm:-top-12 sm:-left-10 lg:-top-16 lg:-left-14 z-30">
             <img
               src={sparkle1}
@@ -492,6 +578,36 @@ const AlphabetComplete = () => {
           ? "Ipagpatuloy ang pag-aaral at pagbutihin pa ang iyong kaalaman!"
           : "Keep learning and continue improving your FSL knowledge!"}
       </p>
+    </div>
+  );
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] flex flex-col items-center justify-center">
+
+      {isMobileView ? (
+        <div className="relative z-10 px-4 py-12 w-full">
+          {renderContent(false)}
+        </div>
+      ) : (
+        <div
+          ref={stageOuterRef}
+          className="relative z-10 w-full flex items-center justify-center"
+          style={{ height: stageFit.height || undefined }}
+        >
+          <div
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top center",
+            }}
+          >
+            <div className="px-8 py-12">
+              {renderContent(true)}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

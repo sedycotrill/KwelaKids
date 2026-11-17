@@ -44,14 +44,12 @@ import NumbersComplete from "./pages/logged-in/numbers/numbercomplete";
 import NumbersChampionship from "./pages/logged-in/numbers/numberchampionship";
 import NumbersChampionshipHistory from "./pages/logged-in/numbers/numberchampionshiphistory";
 import NumbersChampionshipSummary from "./pages/logged-in/numbers/numberchampionshipsummary";
-import NumbersQuiz from "./pages/logged-in/numbers/numberquiz";
+
 
 // GREETINGS PAGES
 import GreetingsPage from "./pages/logged-in/greetings/greetings";
 import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
 import GreetingsTutorial2 from "./pages/logged-in/greetings/greetingstutorial2";
-import GreetingPractical from "./pages/logged-in/greetings/greetingpractical";
-import GreetingQuiz from "./pages/logged-in/greetings/greetingquiz";
 import GreetingsComplete from "./pages/logged-in/greetings/greetingscomplete";
 import GreetingsChampionship from "./pages/logged-in/greetings/greetingschampionship";
 import GreetingsChampionshipSummary from "./pages/logged-in/greetings/greetingschampionshipsummary";
@@ -237,11 +235,6 @@ function App() {
                                 element={<NumbersChampionshipHistory />}
                             />
 
-                            <Route
-                                path="/numbersquiz"
-                                element={<NumbersQuiz />}
-                            />
-
                             {/* Greetings */}
                             <Route
                                 path="/greetings"
@@ -256,16 +249,6 @@ function App() {
                             <Route
                                 path="/greetingstutorial2"
                                 element={<GreetingsTutorial2 />}
-                            />
-
-                            <Route
-                                path="/greetingpractical"
-                                element={<GreetingPractical />}
-                            />
-
-                            <Route
-                                path="/greetingsquiz"
-                                element={<GreetingQuiz />}
                             />
 
                             <Route

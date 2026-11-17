@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -34,6 +34,90 @@ const GREETINGS_PART_2 = [
 
 const PART_KEY = "part_2";
 const QUICK_TEST_LENGTH = 3;
+
+const PAGE_DESIGN_WIDTH = 1366;
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+
+  const uaData = (
+    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+  ).userAgentData;
+
+  if (uaData?.mobile) return true;
+
+  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  return (
+    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
+  );
+}
+
+function detectMobileView() {
+  if (typeof window === "undefined") return false;
+
+  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+  const [isMobile, setIsMobile] = useState(detectMobileView);
+
+  useEffect(() => {
+    const update = () => setIsMobile(detectMobileView());
+
+    update();
+
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  return isMobile;
+}
+
+function useFitWidth(designWidth: number, enabled: boolean) {
+  const [outer, setOuter] = useState<HTMLDivElement | null>(null);
+  const [inner, setInner] = useState<HTMLDivElement | null>(null);
+
+  const [fit, setFit] = useState({ scale: 1, height: 0 });
+
+  useLayoutEffect(() => {
+    if (!enabled || !outer || !inner) return;
+
+    const update = () => {
+      const width = outer.clientWidth;
+
+      if (!width) return;
+
+      const scale = width / designWidth;
+      const height = inner.offsetHeight * scale;
+
+      setFit((previous) =>
+        previous.scale === scale && previous.height === height
+          ? previous
+          : { scale, height }
+      );
+    };
+
+    update();
+
+    const observer = new ResizeObserver(update);
+
+    observer.observe(outer);
+    observer.observe(inner);
+
+    return () => observer.disconnect();
+  }, [outer, inner, enabled, designWidth]);
+
+  return { outerRef: setOuter, innerRef: setInner, fit };
+}
 
 // Indexes inside GREETINGS_PART_2: 0-5 = Welcome to How Are You?, 6-12 = I'm Fine to Happy New Year
 const CHECKPOINTS = {
@@ -196,6 +280,13 @@ export default function GreetingsTutorialPart2() {
   const { user, loading: authLoading } = useAuth();
 
   const isTagalog = language === "tl";
+  const isMobileView = useIsMobileView();
+
+  const {
+    outerRef: stageOuterRef,
+    innerRef: stageInnerRef,
+    fit: stageFit,
+  } = useFitWidth(PAGE_DESIGN_WIDTH, !isMobileView);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isQuickTest, setIsQuickTest] = useState(false);
@@ -889,43 +980,246 @@ export default function GreetingsTutorialPart2() {
   }
 
   // --------------------------------------------------
-  // QUICK TEST MODE
+  // RENDER CONTENT FUNCTION (ZOOM-PROOF)
   // --------------------------------------------------
 
-  if (isQuickTest && questions.length === QUICK_TEST_LENGTH) {
-    const currentQuestion = questions[testIndex];
-    const checkpointNumber =
-      attemptCheckpoint ?? getCheckpointNumber(currentIndex);
+  const renderContent = (_isDesktop: boolean) => {
+    if (isQuickTest && questions.length === QUICK_TEST_LENGTH) {
+      const currentQuestion = questions[testIndex];
+      const checkpointNumber =
+        attemptCheckpoint ?? getCheckpointNumber(currentIndex);
+
+      return (
+        <div className="relative w-full min-h-[700px]">
+          <div className="relative z-25 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleQuickTestBack}
+                disabled={progressSaving}
+                aria-label={
+                  isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"
+                }
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ArrowLeft size={22} strokeWidth={2.5} />
+              </button>
+
+              <div>
+                <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+                  {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+                </h1>
+                <p className="text-sm font-medium text-slate-600 sm:text-base">
+                  {isTagalog
+                    ? `Checkpoint ${checkpointNumber}: ${CHECKPOINTS[checkpointNumber].label}`
+                    : `Checkpoint ${checkpointNumber}: ${CHECKPOINTS[checkpointNumber].label}`}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+            {errorBanner}
+            {savingNote}
+
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
+                {isTagalog
+                  ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_LENGTH}`
+                  : `Question ${testIndex + 1} of ${QUICK_TEST_LENGTH}`}
+              </p>
+
+              <div
+                className="h-3 w-full overflow-hidden rounded-full bg-white/80"
+                aria-hidden="true"
+              >
+                <div
+                  className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
+                  style={{
+                    width: `${((testIndex + 1) / QUICK_TEST_LENGTH) * 100}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
+              <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
+                <video
+                  ref={testVideoRef}
+                  src="/videos/FSLgreetings.mp4"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  onTimeUpdate={handleTestVideoTimeUpdate}
+                  onPlay={handleTestVideoPlay}
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
+                <div className="flex items-center gap-2 text-[#36A9F4]">
+                  <Award size={22} />
+                  <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
+                    {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+                  </span>
+                </div>
+
+                <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
+                  {isTagalog
+                    ? currentQuestion.questionTl
+                    : currentQuestion.questionEn}
+                </h2>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {currentQuestion.options.map((option) => {
+                    let buttonStyle =
+                      "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
+
+                    if (selectedAnswer === option) {
+                      buttonStyle = isCorrect
+                        ? "border-emerald-500 bg-emerald-100 text-emerald-700"
+                        : "border-rose-500 bg-rose-100 text-rose-700";
+                    } else if (
+                      selectedAnswer &&
+                      option === currentQuestion.answer
+                    ) {
+                      buttonStyle =
+                        "border-emerald-500 bg-emerald-100 text-emerald-700";
+                    }
+
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={selectedAnswer !== null || progressSaving}
+                        onClick={() => handleAnswerSelect(option)}
+                        className={`flex h-14 items-center justify-center px-3 rounded-xl border-b-4 text-sm font-black transition-all disabled:cursor-not-allowed ${buttonStyle}`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestReplay}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                >
+                  <RotateCcw size={20} aria-hidden="true" />
+                  {isTagalog ? "Panoorin ulit" : "Watch again"}
+                </button>
+              </div>
+            </div>
+
+            {selectedAnswer !== null && (
+              <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
+                <p
+                  className={`text-base font-extrabold ${
+                    isCorrect ? "text-emerald-600" : "text-rose-600"
+                  }`}
+                >
+                  {isCorrect
+                    ? isTagalog
+                      ? "Magaling! Tama ang sagot mo! 🎉"
+                      : "Great job! Correct answer! 🎉"
+                    : isTagalog
+                      ? `Mali! Ang tamang sagot ay ${currentQuestion.answer}.`
+                      : `Incorrect! The correct answer is ${currentQuestion.answer}.`}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleNextTestQuestion}
+                  disabled={progressSaving}
+                  className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {testIndex < questions.length - 1
+                    ? isTagalog
+                      ? "Susunod na Tanong"
+                      : "Next Question"
+                    : isTagalog
+                      ? checkpointNumber === 1
+                        ? "Magpatuloy sa Ikalawang Bahagi"
+                        : "Tapusin"
+                      : checkpointNumber === 1
+                        ? "Continue"
+                        : "Finish"}
+
+                  <ArrowRight size={21} strokeWidth={3} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
 
     return (
-      <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-        <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
-        <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
-
-        <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+      <div className="relative w-full min-h-[700px]">
+        <div className="relative z-25 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleQuickTestBack}
-              disabled={progressSaving}
+              onClick={() => navigate("/greetings")}
               aria-label={
-                isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"
+                isTagalog ? "Bumalik sa menu ng mga bati" : "Back to greetings menu"
               }
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
             >
               <ArrowLeft size={22} strokeWidth={2.5} />
             </button>
 
             <div>
               <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-                {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+                {isTagalog
+                  ? "Tutorial sa mga Bati (Bahagi 2)"
+                  : "Greetings Tutorial (Part 2)"}
               </h1>
               <p className="text-sm font-medium text-slate-600 sm:text-base">
                 {isTagalog
-                  ? `Checkpoint ${checkpointNumber}: ${CHECKPOINTS[checkpointNumber].label}`
-                  : `Checkpoint ${checkpointNumber}: ${CHECKPOINTS[checkpointNumber].label}`}
+                  ? "Matutunan ang mga susunod na bati hakbang-hakbang."
+                  : "Learn more greetings step by step."}
               </p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => toggleLanguage()}
+              className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+            >
+              <Languages size={22} />
+              <span>{isTagalog ? "TL" : "EN"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleMusic()}
+              aria-pressed={isMusicActive}
+              aria-label={
+                isMusicActive
+                  ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                  : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+              }
+              className={`${chunkyButton} ${
+                isMusicActive
+                  ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                  : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+              }`}
+            >
+              {isMusicActive ? (
+                <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+              ) : (
+                <VolumeX size={22} />
+              )}
+              <span className="hidden md:inline">
+                {isMusicActive
+                  ? isTagalog ? "Tugtog" : "Music"
+                  : isTagalog ? "Naka-mute" : "Muted"}
+              </span>
+            </button>
           </div>
         </div>
 
@@ -936,8 +1230,8 @@ export default function GreetingsTutorialPart2() {
           <div className="mb-4">
             <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
               {isTagalog
-                ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_LENGTH}`
-                : `Question ${testIndex + 1} of ${QUICK_TEST_LENGTH}`}
+                ? `Bati ${currentIndex + 1} ng ${total}`
+                : `Greeting ${currentIndex + 1} of ${total}`}
             </p>
 
             <div
@@ -945,77 +1239,82 @@ export default function GreetingsTutorialPart2() {
               aria-hidden="true"
             >
               <div
-                className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
-                style={{
-                  width: `${((testIndex + 1) / QUICK_TEST_LENGTH) * 100}%`,
-                }}
+                className="h-full rounded-full bg-[#36A9F4] transition-all duration-300 motion-reduce:transition-none"
+                style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
               />
             </div>
           </div>
 
+          {/* GREETING CHIPS */}
+          <div
+            className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2"
+            role="group"
+            aria-label={isTagalog ? "Piliin ang bati" : "Choose a greeting"}
+          >
+            {GREETINGS_PART_2.map((greeting, position) => {
+              const isCurrent = position === currentIndex;
+              const isLocked =
+                currentIndex <= CHECKPOINTS[1].end &&
+                position > CHECKPOINTS[1].end;
+
+              return (
+                <button
+                  key={greeting}
+                  ref={(element) => {
+                    chipRefs.current[position] = element;
+                  }}
+                  type="button"
+                  onClick={() => handleGreetingChange(position)}
+                  disabled={progressSaving || isLocked}
+                  aria-current={isCurrent ? "step" : undefined}
+                  aria-label={greeting}
+                  className={`flex h-11 shrink-0 items-center justify-center px-4 rounded-xl border-b-4 text-sm font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap ${
+                    isCurrent
+                      ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
+                      : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
+                  }`}
+                >
+                  {greeting}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* TUTORIAL CARD */}
           <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
             <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
               <video
-                ref={testVideoRef}
+                ref={videoRef}
                 src="/videos/FSLgreetings.mp4"
                 controls
                 playsInline
                 preload="metadata"
-                onTimeUpdate={handleTestVideoTimeUpdate}
-                onPlay={handleTestVideoPlay}
+                onTimeUpdate={handleVideoTimeUpdate}
+                onPlay={handleVideoPlay}
                 className="h-full w-full object-contain"
               />
             </div>
 
             <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-              <div className="flex items-center gap-2 text-[#36A9F4]">
-                <Award size={22} />
-                <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
-                  {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+              <div className="flex flex-col items-center justify-center">
+                <span className="text-2xl font-black text-[#426A91] sm:text-3xl text-center">
+                  {currentGreeting}
                 </span>
               </div>
 
-              <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
-                {isTagalog
-                  ? currentQuestion.questionTl
-                  : currentQuestion.questionEn}
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentQuestion.options.map((option) => {
-                  let buttonStyle =
-                    "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
-
-                  if (selectedAnswer === option) {
-                    buttonStyle = isCorrect
-                      ? "border-emerald-500 bg-emerald-100 text-emerald-700"
-                      : "border-rose-500 bg-rose-100 text-rose-700";
-                  } else if (
-                    selectedAnswer &&
-                    option === currentQuestion.answer
-                  ) {
-                    buttonStyle =
-                      "border-emerald-500 bg-emerald-100 text-emerald-700";
-                  }
-
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      disabled={selectedAnswer !== null || progressSaving}
-                      onClick={() => handleAnswerSelect(option)}
-                      className={`flex h-14 items-center justify-center px-3 rounded-xl border-b-4 text-sm font-black transition-all disabled:cursor-not-allowed ${buttonStyle}`}
-                    >
-                      {option}
-                    </button>
-                  );
-                })}
+              <div>
+                <h2 className="mb-1 text-lg font-black text-[#454545]">
+                  {isTagalog ? "Paglalarawan:" : "Description:"}
+                </h2>
+                <p className="text-base leading-relaxed text-[#555555]">
+                  {description}
+                </p>
               </div>
 
               <button
                 type="button"
-                onClick={handleTestReplay}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                onClick={handleReplay}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 font-extrabold text-white sm:w-auto sm:self-start sm:px-6"
               >
                 <RotateCcw size={20} aria-hidden="true" />
                 {isTagalog ? "Panoorin ulit" : "Watch again"}
@@ -1023,242 +1322,68 @@ export default function GreetingsTutorialPart2() {
             </div>
           </div>
 
-          {selectedAnswer !== null && (
-            <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
-              <p
-                className={`text-base font-extrabold ${
-                  isCorrect ? "text-emerald-600" : "text-rose-600"
-                }`}
-              >
-                {isCorrect
-                  ? isTagalog
-                    ? "Magaling! Tama ang sagot mo! 🎉"
-                    : "Great job! Correct answer! 🎉"
-                  : isTagalog
-                    ? `Mali! Ang tamang sagot ay ${currentQuestion.answer}.`
-                    : `Incorrect! The correct answer is ${currentQuestion.answer}.`}
-              </p>
-
+          {/* NAVIGATION BUTTONS */}
+          <div className="mt-6 flex items-center justify-between gap-3">
+            {currentIndex > 0 ? (
               <button
                 type="button"
-                onClick={handleNextTestQuestion}
+                onClick={() => handleGreetingChange(currentIndex - 1)}
                 disabled={progressSaving}
-                className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {testIndex < questions.length - 1
-                  ? isTagalog
-                    ? "Susunod na Tanong"
-                    : "Next Question"
-                  : isTagalog
-                    ? checkpointNumber === 1
-                      ? "Magpatuloy sa Ikalawang Bahagi"
-                      : "Tapusin"
-                    : checkpointNumber === 1
-                      ? "Continue"
-                      : "Finish"}
-
-                <ArrowRight size={21} strokeWidth={3} />
+                <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
+                {isTagalog ? "Nakaraan" : "Previous"}
               </button>
-            </div>
-          )}
-        </section>
-      </main>
-    );
-  }
+            ) : (
+              <span aria-hidden="true" />
+            )}
 
-  // --------------------------------------------------
-  // STANDARD TUTORIAL MODE
-  // --------------------------------------------------
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={progressSaving}
+              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isCheckpointEnd ? "Quick Test" : isTagalog ? "Susunod" : "Next"}
+              {isCheckpointEnd ? (
+                <Check size={21} strokeWidth={3} aria-hidden="true" />
+              ) : (
+                <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  };
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/greetings")}
-            aria-label={
-              isTagalog ? "Bumalik sa menu ng mga bati" : "Back to greetings menu"
-            }
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
-          >
-            <ArrowLeft size={22} strokeWidth={2.5} />
-          </button>
-
-          <div>
-            <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-              {isTagalog
-                ? "Tutorial sa mga Bati (Bahagi 2)"
-                : "Greetings Tutorial (Part 2)"}
-            </h1>
-            <p className="text-sm font-medium text-slate-600 sm:text-base">
-              {isTagalog
-                ? "Matutunan ang mga susunod na bati hakbang-hakbang."
-                : "Learn more greetings step by step."}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() => toggleLanguage()}
-            className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700`}
-          >
-            <Languages size={22} />
-            <span>{isTagalog ? "TL" : "EN"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => toggleMusic()}
-            aria-label={isTagalog ? "I-toggle ang musika" : "Toggle music"}
-            className={`${chunkyButton} ${
-              isMusicActive
-                ? "border-amber-300 bg-amber-100 text-amber-700"
-                : "border-slate-300 bg-slate-100 text-slate-500"
-            }`}
-          >
-            {isMusicActive ? <Volume2 size={22} /> : <VolumeX size={22} />}
-          </button>
-        </div>
-      </div>
-
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
 
-      <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-        {errorBanner}
-        {savingNote}
-
-        <div className="mb-4">
-          <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
-            {isTagalog
-              ? `Bati ${currentIndex + 1} ng ${total}`
-              : `Greeting ${currentIndex + 1} of ${total}`}
-          </p>
-
-          <div
-            className="h-3 w-full overflow-hidden rounded-full bg-white/80"
-            aria-hidden="true"
-          >
-            <div
-              className="h-full rounded-full bg-[#36A9F4] transition-all duration-300 motion-reduce:transition-none"
-              style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* GREETING CHIPS */}
+      {isMobileView ? (
+        <div className="relative z-10 w-full">{renderContent(false)}</div>
+      ) : (
         <div
-          className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2"
-          role="group"
-          aria-label={isTagalog ? "Piliin ang bati" : "Choose a greeting"}
+          ref={stageOuterRef}
+          className="relative z-10 w-full"
+          style={{ height: stageFit.height || undefined }}
         >
-          {GREETINGS_PART_2.map((greeting, position) => {
-            const isCurrent = position === currentIndex;
-            const isLocked =
-              currentIndex <= CHECKPOINTS[1].end &&
-              position > CHECKPOINTS[1].end;
-
-            return (
-              <button
-                key={greeting}
-                ref={(element) => {
-                  chipRefs.current[position] = element;
-                }}
-                type="button"
-                onClick={() => handleGreetingChange(position)}
-                disabled={progressSaving || isLocked}
-                aria-current={isCurrent ? "step" : undefined}
-                aria-label={greeting}
-                className={`flex h-11 shrink-0 items-center justify-center px-4 rounded-xl border-b-4 text-sm font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 whitespace-nowrap ${
-                  isCurrent
-                    ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
-                    : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
-                }`}
-              >
-                {greeting}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* TUTORIAL CARD */}
-        <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
-          <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
-            <video
-              ref={videoRef}
-              src="/videos/FSLgreetings.mp4"
-              controls
-              playsInline
-              preload="metadata"
-              onTimeUpdate={handleVideoTimeUpdate}
-              onPlay={handleVideoPlay}
-              className="h-full w-full object-contain"
-            />
-          </div>
-
-          <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
-            <div className="flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-[#426A91] sm:text-3xl text-center">
-                {currentGreeting}
-              </span>
-            </div>
-
-            <div>
-              <h2 className="mb-1 text-lg font-black text-[#454545]">
-                {isTagalog ? "Paglalarawan:" : "Description:"}
-              </h2>
-              <p className="text-base leading-relaxed text-[#555555]">
-                {description}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleReplay}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 font-extrabold text-white sm:w-auto sm:self-start sm:px-6"
-            >
-              <RotateCcw size={20} aria-hidden="true" />
-              {isTagalog ? "Panoorin ulit" : "Watch again"}
-            </button>
-          </div>
-        </div>
-
-        {/* NAVIGATION BUTTONS */}
-        <div className="mt-6 flex items-center justify-between gap-3">
-          {currentIndex > 0 ? (
-            <button
-              type="button"
-              onClick={() => handleGreetingChange(currentIndex - 1)}
-              disabled={progressSaving}
-              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
-              {isTagalog ? "Nakaraan" : "Previous"}
-            </button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={progressSaving}
-            className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+          <div
+            ref={stageInnerRef}
+            style={{
+              width: PAGE_DESIGN_WIDTH,
+              transform: `scale(${stageFit.scale})`,
+              transformOrigin: "top left",
+            }}
           >
-            {isCheckpointEnd ? "Quick Test" : isTagalog ? "Susunod" : "Next"}
-            {isCheckpointEnd ? (
-              <Check size={21} strokeWidth={3} aria-hidden="true" />
-            ) : (
-              <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
-            )}
-          </button>
+            {renderContent(true)}
+          </div>
         </div>
-      </section>
+      )}
     </main>
   );
 }
