@@ -68,33 +68,35 @@ const PASSING_SCORE = Math.ceil(
 const NUMBERS = Array.from({ length: 20 }, (_, i) => String(i + 1)); // ["1", "2", ..., "20"]
 
 /*
- * Video timestamps para sa bawat numero sa FSL.
- * Maaari mong isaayos ang start at end seconds batay sa iyong video file.
+ * Video timestamps (seconds) para sa bawat numero sa /videos/FSLnumbers.mp4.
+ * 1-10: kapareho ng ginagamit sa numberstutorial.tsx.
+ * 11-20: TODO - PLACEHOLDER pa lang (kapareho ng numberstutorial2.tsx).
+ *        Palitan ng totoong oras ng bawat numero sa video.
  */
 const NUMBER_TIMESTAMPS: Record<
   string,
   { start: number; end: number }
 > = {
-  "1": { start: 0.0, end: 2.5 },
-  "2": { start: 2.5, end: 5.0 },
-  "3": { start: 5.0, end: 7.5 },
-  "4": { start: 7.5, end: 10.0 },
-  "5": { start: 10.0, end: 12.5 },
-  "6": { start: 12.5, end: 15.0 },
-  "7": { start: 15.0, end: 17.5 },
-  "8": { start: 17.5, end: 20.0 },
-  "9": { start: 20.0, end: 22.5 },
-  "10": { start: 22.5, end: 25.0 },
-  "11": { start: 25.0, end: 27.5 },
-  "12": { start: 27.5, end: 30.0 },
-  "13": { start: 30.0, end: 32.5 },
-  "14": { start: 32.5, end: 35.0 },
-  "15": { start: 35.0, end: 37.5 },
-  "16": { start: 37.5, end: 40.0 },
-  "17": { start: 40.0, end: 42.5 },
-  "18": { start: 42.5, end: 45.0 },
-  "19": { start: 45.0, end: 47.5 },
-  "20": { start: 47.5, end: 50.0 },
+  "1": { start: 6, end: 7 },
+  "2": { start: 9, end: 10 },
+  "3": { start: 11, end: 12 },
+  "4": { start: 14, end: 15 },
+  "5": { start: 16, end: 17 },
+  "6": { start: 18, end: 20 },
+  "7": { start: 21, end: 23 },
+  "8": { start: 24, end: 25 },
+  "9": { start: 26, end: 28 },
+  "10": { start: 29, end: 31 },
+  "11": { start: 32, end: 35 },
+  "12": { start: 35, end: 38 },
+  "13": { start: 38, end: 41 },
+  "14": { start: 41, end: 44 },
+  "15": { start: 44, end: 47 },
+  "16": { start: 47, end: 50 },
+  "17": { start: 50, end: 53 },
+  "18": { start: 53, end: 56 },
+  "19": { start: 56, end: 59 },
+  "20": { start: 59, end: 62 },
 };
 
 const VIDEO_END_BUFFER = 0.05;
@@ -388,14 +390,25 @@ export default function NumbersChampionship() {
 
         if (playPromise !== undefined) {
           playPromise.catch((playError) => {
-            if (!cancelled) {
-              console.error(
-                "Numbers Championship video playback error:",
-                playError
-              );
+            if (cancelled) return;
 
-              onPlaybackError?.(playError);
+            // Browsers may block autoplay until the learner taps something,
+            // and a quick pause/seek can abort play(). WATCH AGAIN still works,
+            // so these two cases should not show an error.
+            if (
+              playError instanceof DOMException &&
+              (playError.name === "NotAllowedError" ||
+                playError.name === "AbortError")
+            ) {
+              return;
             }
+
+            console.error(
+              "Numbers Championship video playback error:",
+              playError
+            );
+
+            onPlaybackError?.(playError);
           });
         }
       };
@@ -651,40 +664,10 @@ export default function NumbersChampionship() {
         navigate("/numberchampionship", { replace: true });
       }
 
-      if (!forceNewAttempt) {
-        const {
-          data: completedAttempt,
-          error: completedError,
-        } = await supabase
-          .from("numbers_assessment_attempts")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("assessment_type", "championship")
-          .eq("part_key", "3")
-          .eq("status", "completed")
-          .order("completed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (completedError) {
-          throw completedError;
-        }
-
-        if (completedAttempt) {
-          navigate(
-            `/numbercomplete?attempt=${encodeURIComponent(
-              completedAttempt.id
-            )}`,
-            { replace: true }
-          );
-
-          return;
-        }
-      }
-
       let existingAttempt: any = null;
 
       if (!forceNewAttempt) {
+        // 1) Resume an unfinished attempt first, so a retake survives a refresh.
         const {
           data,
           error: attemptError,
@@ -695,7 +678,8 @@ export default function NumbersChampionship() {
           .eq("assessment_type", "championship")
           .eq("part_key", "3")
           .eq("status", "in_progress")
-          .order("started_at", { ascending: false })
+          .order("started_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
@@ -704,6 +688,38 @@ export default function NumbersChampionship() {
         }
 
         existingAttempt = data;
+
+        // 2) Nothing unfinished: show the latest completed result.
+        if (!existingAttempt) {
+          const {
+            data: completedAttempt,
+            error: completedError,
+          } = await supabase
+            .from("numbers_assessment_attempts")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("assessment_type", "championship")
+            .eq("part_key", "3")
+            .eq("status", "completed")
+            .order("completed_at", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (completedError) {
+            throw completedError;
+          }
+
+          if (completedAttempt) {
+            navigate(
+              `/numbercomplete?attempt=${encodeURIComponent(
+                completedAttempt.id
+              )}`,
+              { replace: true }
+            );
+
+            return;
+          }
+        }
       }
 
       let activeAttempt: AssessmentAttempt;
@@ -773,6 +789,7 @@ export default function NumbersChampionship() {
             score: null,
             total_questions: TOTAL_QUESTIONS,
             status: "in_progress",
+            started_at: new Date().toISOString(),
           })
           .select("*")
           .single();
@@ -1264,7 +1281,9 @@ export default function NumbersChampionship() {
 
         {/* FOOTER */}
         <div className="mt-6 text-center text-xs sm:text-sm font-medium text-slate-500">
-          {text.progressSaved}
+          {answers.length > 0 && !saving && !error
+            ? text.progressSaved
+            : "\u00A0"}
         </div>
       </div>
     </main>

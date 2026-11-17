@@ -10,7 +10,7 @@ import theoreticalImage from "../../../assets/theoretical.svg";
 import championshipImage from "../../../assets/championship.svg";
 import ropeImage from "../../../assets/rope.svg";
 
-// Baguhin ito kung iba ang route ng iyong Numbers Championship.
+// Update this if your Championship component uses a different route.
 const CHAMPIONSHIP_ROUTE = "/numberchampionship";
 
 // Shared "chunky 3D" button look
@@ -141,16 +141,18 @@ export default function NumbersPage() {
     const isTagalog = language === "tl";
     const isMusicActive = isPlaying && volume > 0;
 
-    // Independent progress para sa bawat bahagi ng numbers tutorial.
+    // Independent progress for each tutorial part.
     const [part1Progress, setPart1Progress] =
         useState<TutorialProgress | null>(null);
 
     const [part2Progress, setPart2Progress] =
         useState<TutorialProgress | null>(null);
 
-    // Database loading at error handling.
+    // Database loading and error handling.
     const [progressLoading, setProgressLoading] = useState(true);
+
     const [progressError, setProgressError] = useState("");
+
     const [reloadVersion, setReloadVersion] = useState(0);
 
     // Completion states.
@@ -162,14 +164,14 @@ export default function NumbersPage() {
         part2Progress?.tutorial_completed_at
     );
 
-    // Magbubukas ang Part 2 kapag tapos na ang Part 1.
+    // Part 2 unlocks after Part 1 is completed.
     const isPart2Unlocked = isPart1Completed;
 
-    // Magbubukas lamang ang Championship kapag tapos na ang parehong tutorials.
+    // Championship unlocks only after both tutorials are completed.
     const isChampionshipUnlocked =
         isPart1Completed && isPart2Completed;
 
-    // Kunin ang progress records mula sa Supabase table (numbers_progress).
+    // Fetch both tutorial progress records from numbers_progress table.
     useEffect(() => {
         let isMounted = true;
 
@@ -183,6 +185,7 @@ export default function NumbersPage() {
                     setProgressError("");
                     setProgressLoading(false);
                 }
+
                 return;
             }
 
@@ -202,7 +205,8 @@ export default function NumbersPage() {
 
                 if (!isMounted) return;
 
-                const progressRows = (data ?? []) as TutorialProgress[];
+                const progressRows =
+                    (data ?? []) as TutorialProgress[];
 
                 const part1 = progressRows.find(
                     (row) => row.part_key === "part_1"
@@ -213,6 +217,7 @@ export default function NumbersPage() {
                 );
 
                 setPart1Progress(part1 ?? null);
+
                 setPart2Progress(part2 ?? null);
             } catch (error) {
                 console.error(
@@ -244,6 +249,7 @@ export default function NumbersPage() {
         };
     }, [user?.id, authLoading, reloadVersion, isTagalog]);
 
+    // Tutorial action labels.
     const getTutorialActionLabel = (
         progress: TutorialProgress | null
     ) => {
@@ -258,8 +264,13 @@ export default function NumbersPage() {
         return isTagalog ? "Simulan" : "Start";
     };
 
-    const loadingLabel = isTagalog ? "Naglo-load..." : "Loading...";
-    const lockedLabel = isTagalog ? "Naka-lock" : "Locked";
+    const loadingLabel = isTagalog
+        ? "Naglo-load..."
+        : "Loading...";
+
+    const lockedLabel = isTagalog
+        ? "Naka-lock"
+        : "Locked";
 
     const part1Name = isTagalog
         ? "Tutorial Bahagi 1 (1–10)"
@@ -273,13 +284,17 @@ export default function NumbersPage() {
         ? "Kampeonato"
         : "Championship";
 
-    const completedLabel = isTagalog ? "Tapos na" : "Completed";
+    const completedLabel = isTagalog
+        ? "Tapos na"
+        : "Completed";
 
     const championshipActionLabel = isChampionshipUnlocked
-        ? isTagalog ? "Maglaro" : "Play"
+        ? isTagalog
+            ? "Maglaro"
+            : "Play"
         : lockedLabel;
 
-    // Posisyon at detalye ng mga isla sa pahina ng mga numero
+    // Island definitions.
     const islands = [
         {
             id: 1,
@@ -454,12 +469,16 @@ export default function NumbersPage() {
 
             {/* Clouds */}
             <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
+
             <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
+
             <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
+
             <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
 
             {/* Decorative Bottom Clouds */}
             <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
+
             <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
             {/* PHONES AND TABLETS: islands stacked in a zigzag path */}

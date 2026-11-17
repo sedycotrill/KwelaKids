@@ -1,4 +1,3 @@
-
 import {
     Routes,
     Route,
@@ -37,8 +36,15 @@ import AlphabetComplete from "./pages/logged-in/alphabet/alphabetcomplete";
 import AlphabetChampionship from "./pages/logged-in/alphabet/alphabetchampionship";
 import AlphabetChampionshipHistory from "./pages/logged-in/alphabet/alphabetchampionshiphistory";
 
+// NUMBERS PAGES (Itinugma sa mga pangalan ng file sa folder)
 import NumbersPage from "./pages/logged-in/numbers/numbers";
 import NumbersTutorial from "./pages/logged-in/numbers/numberstutorial";
+import NumbersTutorial2 from "./pages/logged-in/numbers/numberstutorial2";
+import NumbersComplete from "./pages/logged-in/numbers/numbercomplete";
+import NumbersChampionship from "./pages/logged-in/numbers/numberchampionship";
+import NumbersChampionshipHistory from "./pages/logged-in/numbers/numberchampionshiphistory";
+import NumbersChampionshipSummary from "./pages/logged-in/numbers/numberchampionshipsummary";
+import NumbersQuiz from "./pages/logged-in/numbers/numberquiz";
 
 import GreetingsPage from "./pages/logged-in/greetings/greetings";
 import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
@@ -50,13 +56,11 @@ import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
 function DefaultRoute() {
     const { session, loading } = useAuth();
 
-    // Wait for Supabase to restore the previous session.
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-3">
                     <div className="h-10 w-10 animate-spin rounded-full border-4 border-sky-200 border-t-sky-500" />
-
                     <p className="text-sm font-medium text-slate-600">
                         Checking your account...
                     </p>
@@ -65,7 +69,6 @@ function DefaultRoute() {
         );
     }
 
-    // Existing session: continue to the application.
     if (session) {
         return (
             <Navigate
@@ -75,7 +78,6 @@ function DefaultRoute() {
         );
     }
 
-    // No session: send the user to sign-in.
     return (
         <Navigate
             to="/signin"
@@ -103,7 +105,6 @@ function App() {
                         />
 
                         {/* Public Routes */}
-
                         <Route
                             path="/signin"
                             element={
@@ -143,18 +144,15 @@ function App() {
                         />
 
                         {/* Protected Routes */}
-
                         <Route element={<ProtectedRoute />}>
 
                             {/* Categories */}
-
                             <Route
                                 path="/categories"
                                 element={<CategoriesPage />}
                             />
 
                             {/* Alphabet */}
-
                             <Route
                                 path="/alphabet"
                                 element={<AlphabetPage />}
@@ -183,7 +181,7 @@ function App() {
                             <Route
                                 path="/championshiphistory"
                                 element={<AlphabetChampionshipHistory />}
-                                />
+                            />
 
                             <Route
                                 path="/championship"
@@ -191,7 +189,6 @@ function App() {
                             />
 
                             {/* Numbers */}
-
                             <Route
                                 path="/numbers"
                                 element={<NumbersPage />}
@@ -202,8 +199,44 @@ function App() {
                                 element={<NumbersTutorial />}
                             />
 
-                            {/* Greetings */}
+                            <Route
+                                path="/numberstutorial2"
+                                element={<NumbersTutorial2 />}
+                            />
 
+                            {/* Ang numberchampionship.tsx ay nagna-navigate sa /numbercomplete */}
+                            <Route
+                                path="/numbercomplete"
+                                element={<NumbersComplete />}
+                            />
+
+                            {/* Iniwan ang lumang path para hindi masira ang ibang link */}
+                            <Route
+                                path="/numberscomplete"
+                                element={<NumbersComplete />}
+                            />
+
+                            <Route
+                                path="/numberchampionship"
+                                element={<NumbersChampionship />}
+                            />
+
+                            <Route
+                                path="/numberchampionshipsummary"
+                                element={<NumbersChampionshipSummary />}
+                            />
+
+                            <Route
+                                path="/numberchampionshiphistory"
+                                element={<NumbersChampionshipHistory />}
+                            />
+
+                            <Route
+                                path="/numbersquiz"
+                                element={<NumbersQuiz />}
+                            />
+
+                            {/* Greetings */}
                             <Route
                                 path="/greetings"
                                 element={<GreetingsPage />}
@@ -217,7 +250,6 @@ function App() {
                         </Route>
 
                         {/* Unknown Routes */}
-
                         <Route
                             path="*"
                             element={
