@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useLayoutEffect, useRef } from "react";
 
 import { useNavigate } from "react-router-dom";
 
@@ -22,13 +22,132 @@ import ropeImage from "../../../assets/rope.svg";
 const CHAMPIONSHIP_ROUTE = "/championship";
 
 // Shared "chunky 3D" button look
-const chunkyButton =
-  "flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border-b-4 px-2.5 text-sm font-extrabold " +
-  "whitespace-nowrap sm:h-12 sm:gap-2 sm:px-3 md:px-4 md:text-base " +
+const chunkyButtonBase =
+  "flex shrink-0 items-center rounded-2xl border-b-4 font-extrabold " +
+  "whitespace-nowrap " +
   "transition-all duration-150 select-none " +
   "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
   "motion-reduce:transition-none motion-reduce:hover:translate-y-0";
+
+// Desktop: fixed size (hindi nagbabago kapag nag-zoom).
+// Mobile: responsive sizes para sa totoong phone/tablet.
+const getChunkyButton = (isDesktop: boolean) =>
+  chunkyButtonBase +
+  (isDesktop
+    ? " h-12 gap-2 px-4 text-base"
+    : " h-11 gap-1.5 px-2.5 text-sm sm:h-12 sm:gap-2 sm:px-3 md:px-4 md:text-base");
+
+/*
+ * DESKTOP MAP SIZE
+ * Ang mga posisyon ng islands at ropes ay dinisenyo sa isang "stage" na may
+ * fixed na laki. Ang stage na ito ay pinapaliit o pinalalaki bilang isang buo
+ * (islands + ropes + text), kaya hindi na nagbabago ang itsura kapag nag-zoom
+ * in/out o iba ang laki ng screen.
+ *
+ * Kung gusto mong ibahin ang proporsyon ng mapa, palitan lang ang dalawang ito.
+ */
+const MAP_DESIGN_WIDTH = 1366;
+const MAP_DESIGN_HEIGHT = 640;
+
+function useFitStage(
+    designWidth: number,
+    designHeight: number,
+    enabled: boolean
+) {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const [fit, setFit] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
+
+    useLayoutEffect(() => {
+        if (!enabled) return;
+
+        const element = containerRef.current;
+
+        if (!element) return;
+
+        const update = () => {
+            const width = element.clientWidth;
+            const height = element.clientHeight;
+
+            if (!width || !height) return;
+
+            const scale = Math.min(
+                width / designWidth,
+                height / designHeight
+            );
+
+            setFit({
+                scale,
+                offsetX: (width - designWidth * scale) / 2,
+                offsetY: (height - designHeight * scale) / 2,
+            });
+        };
+
+        update();
+
+        const observer = new ResizeObserver(update);
+        observer.observe(element);
+
+        return () => observer.disconnect();
+    }, [designWidth, designHeight, enabled]);
+
+    return { containerRef, fit };
+}
+
+/*
+ * MOBILE VIEW DETECTION
+ * Hindi ang lapad ng viewport (bumababa kapag nag-zoom in) at hindi rin ang
+ * touchscreen (may touchscreen din ang ibang laptop) ang basehan.
+ *
+ * Mobile view = totoong phone/tablet (base sa user agent) na ang viewport
+ * ay <= 1023px. Sa desktop/laptop, laging desktop layout kahit anong zoom.
+ * Gumagana rin ito sa device mode ng Chrome DevTools.
+ */
+const MOBILE_MAX_WIDTH = 1023;
+
+function isMobileDevice() {
+    if (typeof navigator === "undefined") return false;
+
+    const uaData = (
+        navigator as Navigator & { userAgentData?: { mobile?: boolean } }
+    ).userAgentData;
+
+    if (uaData?.mobile) return true;
+
+    if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+        return true;
+    }
+
+    // iPadOS reports a Mac user agent, but it has a touch screen.
+    return /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+}
+
+function detectMobileView() {
+    if (typeof window === "undefined") return false;
+
+    return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+}
+
+function useIsMobileView() {
+    const [isMobile, setIsMobile] = useState(detectMobileView);
+
+    useEffect(() => {
+        const update = () => setIsMobile(detectMobileView());
+
+        update();
+
+        window.addEventListener("resize", update);
+        window.addEventListener("orientationchange", update);
+
+        return () => {
+            window.removeEventListener("resize", update);
+            window.removeEventListener("orientationchange", update);
+        };
+    }, []);
+
+    return isMobile;
+}
 
 interface TutorialProgress {
     part_key: "part_1" | "part_2";
@@ -46,6 +165,7 @@ interface IslandProps {
     ariaLabel: string;
     onOpen: () => void;
     className?: string;
+    isDesktop?: boolean;
 }
 
 function Island({
@@ -59,6 +179,7 @@ function Island({
     ariaLabel,
     onOpen,
     className = "",
+    isDesktop = false,
 }: IslandProps) {
     const isDisabled = locked || loading;
 
@@ -80,7 +201,11 @@ function Island({
             `}
         >
             {/* Island picture */}
-            <span className="relative flex h-40 w-40 items-center justify-center overflow-visible sm:h-56 sm:w-56">
+            <span
+                className={`relative flex items-center justify-center overflow-visible ${
+                    isDesktop ? "h-56 w-56" : "h-40 w-40 sm:h-56 sm:w-56"
+                }`}
+            >
                 <img
                     src={image}
                     alt=""
@@ -100,7 +225,11 @@ function Island({
             </span>
 
             {/* Island name */}
-            <span className="mt-1 rounded-full bg-white/80 px-4 py-1 text-base font-black text-[#164B9B] shadow-xs sm:text-lg">
+            <span
+                className={`mt-1 rounded-full bg-white/80 px-4 py-1 font-black text-[#164B9B] shadow-xs ${
+                    isDesktop ? "text-lg" : "text-base sm:text-lg"
+                }`}
+            >
                 {name}
             </span>
 
@@ -148,6 +277,17 @@ export default function AlphabetPage() {
 
     const isTagalog = language === "tl";
     const isMusicActive = isPlaying && volume > 0;
+
+    // Mobile layout only on real phones/tablets, never because of browser zoom.
+    const isMobileView = useIsMobileView();
+    const isDesktopView = !isMobileView;
+
+    // Keeps the desktop map (islands + ropes) in proportion at any zoom level.
+    const { containerRef: mapContainerRef, fit: mapFit } = useFitStage(
+        MAP_DESIGN_WIDTH,
+        MAP_DESIGN_HEIGHT,
+        isDesktopView
+    );
 
     // Independent progress for each tutorial part.
     const [part1Progress, setPart1Progress] =
@@ -356,7 +496,8 @@ export default function AlphabetPage() {
 
     const renderIsland = (
         island: (typeof islands)[number],
-        className: string
+        className: string,
+        isDesktop: boolean
     ) => (
         <Island
             image={island.image}
@@ -375,14 +516,20 @@ export default function AlphabetPage() {
             }
             onOpen={island.onOpen}
             className={className}
+            isDesktop={isDesktop}
         />
     );
 
-    return (
-        <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-
+    // Header + error message. Rendered once for phones and once inside the
+    // scaled desktop layer, so the header keeps its proportions with the map.
+    const renderTopBar = (isDesktop: boolean) => (
+        <>
             {/* SUB-HEADER */}
-            <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+            <div
+                className={`relative z-20 mx-auto flex max-w-7xl items-center justify-between pt-6 ${
+                    isDesktop ? "px-6" : "px-4 sm:px-6"
+                }`}
+            >
                 <div className="flex items-center gap-3">
                     <button
                         type="button"
@@ -398,11 +545,19 @@ export default function AlphabetPage() {
                     </button>
 
                     <div>
-                        <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+                        <h1
+                            className={`font-black leading-tight text-[#164B9B] ${
+                                isDesktop ? "text-3xl" : "text-2xl sm:text-3xl"
+                            }`}
+                        >
                             {isTagalog ? "Alpabeto" : "Alphabet"}
                         </h1>
 
-                        <p className="text-sm font-medium text-slate-600 sm:text-base">
+                        <p
+                            className={`font-medium text-slate-600 ${
+                                isDesktop ? "text-base" : "text-sm sm:text-base"
+                            }`}
+                        >
                             {isTagalog
                                 ? "Matutunan ang mga titik ng alpabetong Filipino."
                                 : "Learn the letters of the Filipino alphabet."}
@@ -411,13 +566,17 @@ export default function AlphabetPage() {
                 </div>
 
                 {/* QUICK ACTIONS (Translation & Music/Mute) */}
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+                <div
+                    className={`flex shrink-0 items-center ${
+                        isDesktop ? "gap-3" : "gap-1.5 sm:gap-3"
+                    }`}
+                >
                     {/* LANGUAGE */}
                     <button
                         type="button"
                         onClick={() => toggleLanguage()}
                         aria-label={isTagalog ? "Palitan sa English" : "Switch to Tagalog"}
-                        className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+                        className={`${getChunkyButton(isDesktop)} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
                     >
                         <Languages size={22} />
                         <span>{isTagalog ? "TL" : "EN"}</span>
@@ -433,7 +592,7 @@ export default function AlphabetPage() {
                                 ? isTagalog ? "I-mute ang tugtog" : "Mute music"
                                 : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
                         }
-                        className={`${chunkyButton} ${
+                        className={`${getChunkyButton(isDesktop)} ${
                             isMusicActive
                                 ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
                                 : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
@@ -444,7 +603,7 @@ export default function AlphabetPage() {
                         ) : (
                             <VolumeX size={22} />
                         )}
-                        <span className="hidden lg:inline">
+                        <span className={isDesktop ? "inline" : "hidden"}>
                             {isMusicActive
                                 ? isTagalog ? "Tugtog" : "Music"
                                 : isTagalog ? "Naka-mute" : "Muted"}
@@ -457,7 +616,11 @@ export default function AlphabetPage() {
             {progressError && (
                 <div
                     role="alert"
-                    className="relative z-20 mx-auto mt-5 flex max-w-2xl flex-col items-center gap-3 rounded-2xl border border-rose-200 bg-white/95 p-4 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left"
+                    className={`relative z-20 mx-auto mt-5 flex max-w-2xl items-center gap-3 rounded-2xl border border-rose-200 bg-white/95 p-4 shadow-sm ${
+                        isDesktop
+                            ? "flex-row justify-between text-left"
+                            : "flex-col text-center sm:flex-row sm:justify-between sm:text-left"
+                    }`}
                 >
                     <p className="text-sm font-semibold text-rose-600">
                         {progressError}
@@ -474,6 +637,16 @@ export default function AlphabetPage() {
                     </button>
                 </div>
             )}
+        </>
+    );
+
+    return (
+        <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+
+            {/* SUB-HEADER + ERROR MESSAGE: phones and tablets only */}
+            {isMobileView && (
+                <div className="relative z-20">{renderTopBar(false)}</div>
+            )}
 
             {/* Clouds */}
             <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
@@ -489,55 +662,91 @@ export default function AlphabetPage() {
 
             <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
-            {/* PHONES AND TABLETS: islands stacked in a zigzag path */}
-            <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8 lg:hidden">
-                {islands.map((island, index) => (
-                    <Fragment key={island.id}>
-                        {index > 0 && (
-                            <div
+            {isMobileView ? (
+                /* PHONES AND TABLETS: islands stacked in a zigzag path */
+                <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8">
+                    {islands.map((island, index) => (
+                        <Fragment key={island.id}>
+                            {index > 0 && (
+                                <div
+                                    aria-hidden="true"
+                                    className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
+                                />
+                            )}
+
+                            {renderIsland(
+                                island,
+                                index % 2 === 0
+                                    ? "self-start"
+                                    : "self-end",
+                                false
+                            )}
+                        </Fragment>
+                    ))}
+                </div>
+            ) : (
+                <>
+                    {/* DESKTOP: map with ropes (scaled as one piece) */}
+                    <div
+                        ref={mapContainerRef}
+                        className="absolute inset-0 overflow-hidden"
+                    >
+                        <div
+                            className="absolute"
+                            style={{
+                                width: MAP_DESIGN_WIDTH,
+                                height: MAP_DESIGN_HEIGHT,
+                                left: mapFit.offsetX,
+                                top: mapFit.offsetY,
+                                transform: `scale(${mapFit.scale})`,
+                                transformOrigin: "top left",
+                            }}
+                        >
+                            {/* Rope 1: Part 1 to Part 2 */}
+                            <img
+                                src={ropeImage}
+                                alt=""
                                 aria-hidden="true"
-                                className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
+                                className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
                             />
-                        )}
 
-                        {renderIsland(
-                            island,
-                            index % 2 === 0
-                                ? "self-start"
-                                : "self-end"
-                        )}
-                    </Fragment>
-                ))}
-            </div>
+                            {/* Rope 2: Part 2 to Championship */}
+                            <img
+                                src={ropeImage}
+                                alt=""
+                                aria-hidden="true"
+                                className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
+                            />
 
-            {/* DESKTOP: original map with ropes */}
-            <div className="absolute inset-0 hidden lg:block">
+                            {islands.map((island) => (
+                                <Fragment key={island.id}>
+                                    {renderIsland(
+                                        island,
+                                        `absolute ${island.position}`,
+                                        true
+                                    )}
+                                </Fragment>
+                            ))}
+                        </div>
+                    </div>
 
-                {/* Rope 1: Part 1 to Part 2 */}
-                <img
-                    src={ropeImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
-                />
-
-                {/* Rope 2: Part 2 to Championship */}
-                <img
-                    src={ropeImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
-                />
-
-                {islands.map((island) => (
-                    <Fragment key={island.id}>
-                        {renderIsland(
-                            island,
-                            `absolute ${island.position}`
-                        )}
-                    </Fragment>
-                ))}
-            </div>
+                    {/* SUB-HEADER + ERROR MESSAGE: desktop (scaled together with the map) */}
+                    <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
+                        <div
+                            style={{
+                                width: MAP_DESIGN_WIDTH,
+                                marginLeft: mapFit.offsetX,
+                                transform: `scale(${mapFit.scale})`,
+                                transformOrigin: "top left",
+                            }}
+                        >
+                            <div className="pointer-events-auto">
+                                {renderTopBar(true)}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </main>
     );
 }
