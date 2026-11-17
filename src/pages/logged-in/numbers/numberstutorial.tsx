@@ -1,11 +1,20 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Languages,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useAudio } from "../../../context/AudioContext";
 
-const NUMBERS = Array.from({ length: 20 }, (_, index) => String(index + 1));
+const NUMBERS = Array.from({ length: 10 }, (_, index) => String(index + 1));
 
-// Number video timestamps in seconds.
+// Number video timestamps in seconds (1-10)
 const NUMBER_TIMESTAMPS: Record<string, { start: number; end: number }> = {
   "1": { start: 6, end: 7 },
   "2": { start: 9, end: 10 },
@@ -17,19 +26,9 @@ const NUMBER_TIMESTAMPS: Record<string, { start: number; end: number }> = {
   "8": { start: 24, end: 25 },
   "9": { start: 26, end: 28 },
   "10": { start: 29, end: 31 },
-  "11": { start: 32, end: 34 },
-  "12": { start: 34, end: 36 },
-  "13": { start: 36, end: 38 },
-  "14": { start: 38, end: 40 },
-  "15": { start: 40, end: 42 },
-  "16": { start: 43, end: 45 },
-  "17": { start: 46, end: 48 },
-  "18": { start: 48, end: 51 },
-  "19": { start: 51, end: 53 },
-  "20": { start: 53, end: 55 },
 };
 
-// English descriptions
+// English descriptions (1-10)
 const DESCRIPTIONS_EN: Record<string, string> = {
   "1": "Raise your index finger straight up while keeping your thumb and the other three fingers folded into your palm. Face your palm forward.",
   "2": "Raise your index and middle fingers, keeping them straight and slightly apart. Fold your thumb, ring finger, and pinky into your palm.",
@@ -41,19 +40,9 @@ const DESCRIPTIONS_EN: Record<string, string> = {
   "8": "Raise your index, middle, and ring fingers while touching your thumb to your middle finger. Keep your pinky extended.",
   "9": "Raise your index and middle fingers while touching your thumb to your index finger. Keep your other fingers folded.",
   "10": "Close your hand into a fist and extend your thumb upward.",
-  "11": "Close your hand into a fist. Keep your fingers curled inward and your thumb folded over them, following the hand movement shown in the video.",
-  "12": "Form a closed hand with your fingers curled toward your palm. Follow the slight finger movement demonstrated in the video.",
-  "13": "Keep your hand curled into a loose fist, with the fingertips bent inward and slightly visible. Follow the hand movement shown in the video.",
-  "14": "Curl your fingers inward toward your palm to form a closed hand. Follow the hand position demonstrated in the video.",
-  "15": "Open your hand fully and extend all five fingers, spreading them apart with your palm facing forward.",
-  "16": "Raise your index and middle fingers while touching your thumb to your ring finger. Keep your pinky extended, following the handshape shown in the video.",
-  "17": "Raise your index, middle, and pinky fingers while touching your thumb to your ring finger.",
-  "18": "Extend your four fingers upward while keeping your thumb bent inward toward your palm.",
-  "19": "Raise your index and middle fingers while touching your thumb to your index finger. Keep your remaining fingers folded.",
-  "20": "Close your hand into a fist and extend your index finger upward. Follow the movement demonstrated in the video."
 };
 
-// Tagalog descriptions
+// Tagalog descriptions (1-10)
 const DESCRIPTIONS_TL: Record<string, string> = {
   "1": "Iunat nang tuwid paitaas ang iyong hintuturo habang nakatiklop ang iyong hinlalaki at tatlong iba pang daliri sa iyong palad. Harapin ang iyong palad sa unahan.",
   "2": "Itaas ang hintuturo at gitna, panatilihing tuwid at medyo magkalayo ang mga ito. Tiklupin ang hinlalaki, singsing, at kalingkingan sa iyong palad.",
@@ -65,21 +54,20 @@ const DESCRIPTIONS_TL: Record<string, string> = {
   "8": "Itaas ang hintuturo, gitna, at singsing habang idinidikit ang hinlalaki sa gitnang daliri. Panatilihing nakaunat ang kalingkingan.",
   "9": "Itaas ang hintuturo at gitna habang idinidikit ang hinlalaki sa hintuturo. Tiklupin ang iba pang mga daliri.",
   "10": "Isara ang kamay para maging kamao at iunat paitaas ang hinlalaki.",
-  "11": "Isara ang kamay para maging kamao. Panatilihing nakatiklop ang mga daliri at nakatupi ang hinlalaki sa ibabaw ng mga ito.",
-  "12": "Bumuo ng saradong kamay na nakatiklop ang mga daliri patungo sa palad. Sundin ang maliit na galaw ng daliri sa video.",
-  "13": "Panatilihing nakatiklop ang kamay sa maluwag na kamao. Sundin ang galaw ng kamay na ipinakita sa video.",
-  "14": "Tiklupin ang mga daliri papasok sa palad para bumuo ng saradong kamay ayon sa ipinapakita sa video.",
-  "15": "Buksan nang buo ang kamay at iunat ang limang daliri nang magkakalayo habang nakaharap sa unahan ang palad.",
-  "16": "Itaas ang hintuturo at gitna habang dinidikit ang hinlalaki sa singsing. Panatilihing nakaunat ang kalingkingan.",
-  "17": "Itaas ang hintuturo, gitna, at kalingkingan habang dinidikit ang hinlalaki sa singsing.",
-  "18": "Iunat ang apat na daliri paitaas habang nakabaluktot ang hinlalaki papasok sa palad.",
-  "19": "Itaas ang hintuturo at gitna habang idinidikit ang hinlalaki sa hintuturo. Tiklupin ang natitirang mga daliri.",
-  "20": "Isara ang kamay sa kamao at iunat paitaas ang hintuturo. Sundin ang galaw na ipinakita sa video."
 };
 
-export default function NumbersTutorial() {
+const chunkyButton =
+  "flex h-12 shrink-0 items-center gap-2 rounded-2xl border-b-4 px-3 text-sm font-extrabold " +
+  "whitespace-nowrap sm:text-base md:px-4 " +
+  "transition-all duration-150 select-none " +
+  "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
+  "motion-reduce:transition-none motion-reduce:hover:transform-none";
+
+export default function NumbersTutorialPart1() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
+  const { isPlaying, volume, toggleMusic } = useAudio();
   const isTagalog = language === "tl";
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -91,9 +79,11 @@ export default function NumbersTutorial() {
   const isLast = currentIndex === total - 1;
 
   const timestamp = NUMBER_TIMESTAMPS[currentNumber] || { start: 0, end: 5 };
-  const description = isTagalog ? DESCRIPTIONS_TL[currentNumber] : DESCRIPTIONS_EN[currentNumber];
+  const description = isTagalog
+    ? DESCRIPTIONS_TL[currentNumber]
+    : DESCRIPTIONS_EN[currentNumber];
+  const isMusicActive = isPlaying && volume > 0;
 
-  // Jump the video to the start of the current number's segment
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -116,13 +106,14 @@ export default function NumbersTutorial() {
     };
   }, [currentNumber, timestamp.start, timestamp.end]);
 
-  // Keep the selected number chip in view inside the scrolling strip
   useEffect(() => {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
 
     chipRefs.current[currentIndex]?.scrollIntoView({
       behavior: reduceMotion ? "auto" : "smooth",
-      inline: "nearest", // Inayos mula "center" patungong "nearest" para hindi umunat/humila sa dulo
+      inline: "nearest",
       block: "nearest",
     });
   }, [currentIndex]);
@@ -140,7 +131,10 @@ export default function NumbersTutorial() {
     const video = videoRef.current;
     if (!video) return;
 
-    if (video.currentTime >= timestamp.end - 0.1 || video.currentTime < timestamp.start) {
+    if (
+      video.currentTime >= timestamp.end - 0.1 ||
+      video.currentTime < timestamp.start
+    ) {
       video.currentTime = timestamp.start;
     }
   };
@@ -159,7 +153,6 @@ export default function NumbersTutorial() {
       return;
     }
 
-    // Kunin ang current user para ma-save ang numbers tutorial completion para sa account na ito
     const storedUser =
       localStorage.getItem("kwelakids_current_user") ||
       sessionStorage.getItem("kwelakids_current_user");
@@ -167,9 +160,12 @@ export default function NumbersTutorial() {
     const userEmail = currentUser?.email || "default_user";
 
     try {
-      localStorage.setItem(`kwelakids_${userEmail}_numbers_tutorial_completed`, "true");
+      localStorage.setItem(
+        `kwelakids_${userEmail}_numbers_part1_completed`,
+        "true"
+      );
     } catch {}
-    navigate("/numberscomplete");
+    navigate("/numbers");
   };
 
   return (
@@ -180,21 +176,78 @@ export default function NumbersTutorial() {
           <button
             type="button"
             onClick={() => navigate("/numbers")}
-            aria-label={isTagalog ? "Bumalik sa menu ng mga numero" : "Back to numbers menu"}
+            aria-label={
+              isTagalog
+                ? "Bumalik sa menu ng mga numero"
+                : "Back to numbers menu"
+            }
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
           >
             <ArrowLeft size={22} strokeWidth={2.5} />
           </button>
           <div>
             <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-              {isTagalog ? "Tutorial sa mga Numero" : "Numbers Tutorial"}
+              {isTagalog
+                ? "Tutorial sa mga Numero (1–10)"
+                : "Numbers Tutorial (1–10)"}
             </h1>
             <p className="text-sm font-medium text-slate-600 sm:text-base">
               {isTagalog
-                ? "Matutunan ang bawat numero hakbang-hakbang."
-                : "Learn each number step by step."}
+                ? "Matutunan ang mga numerong 1–10 hakbang-hakbang."
+                : "Learn numbers 1–10 step by step."}
             </p>
           </div>
+        </div>
+
+        {/* QUICK CONTROLS: Language & Music / Mute */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => toggleLanguage()}
+            aria-label={isTagalog ? "Palitan sa English" : "Switch to Tagalog"}
+            className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+          >
+            <Languages size={22} />
+            <span>{isTagalog ? "TL" : "EN"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => toggleMusic()}
+            aria-pressed={isMusicActive}
+            aria-label={
+              isMusicActive
+                ? isTagalog
+                  ? "I-mute ang tugtog"
+                  : "Mute music"
+                : isTagalog
+                  ? "I-unmute ang tugtog"
+                  : "Unmute music"
+            }
+            className={`${chunkyButton} ${
+              isMusicActive
+                ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            {isMusicActive ? (
+              <Volume2
+                size={22}
+                className="animate-pulse motion-reduce:animate-none"
+              />
+            ) : (
+              <VolumeX size={22} />
+            )}
+            <span className="hidden md:inline">
+              {isMusicActive
+                ? isTagalog
+                  ? "Tugtog"
+                  : "Music"
+                : isTagalog
+                  ? "Naka-mute"
+                  : "Muted"}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -203,7 +256,6 @@ export default function NumbersTutorial() {
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
-
       <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
       <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
@@ -229,7 +281,7 @@ export default function NumbersTutorial() {
 
         {/* NUMBER PICKER STRIP */}
         <div
-          className="mb-5 flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full"
+          className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2 scrollbar-none"
           role="group"
           aria-label={isTagalog ? "Piliin ang numero" : "Choose a number"}
         >
@@ -261,7 +313,7 @@ export default function NumbersTutorial() {
         {/* TUTORIAL CARD */}
         <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
           {/* Local Video */}
-          <div className="relative aspect-video w-full overflow-hidden bg-black flex items-center justify-center">
+          <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
             <video
               ref={videoRef}
               src="/videos/FSLnumbers.mp4"
@@ -278,13 +330,15 @@ export default function NumbersTutorial() {
           <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
             <div className="flex flex-col items-center justify-center">
               <span className="text-4xl font-black text-[#426A91] sm:text-5xl">
-                {isTagalog ? `Numero ${currentNumber}` : `Number ${currentNumber}`}
+                {isTagalog
+                  ? `Numero ${currentNumber}`
+                  : `Number ${currentNumber}`}
               </span>
             </div>
 
             <div>
               <h2 className="mb-1 text-lg font-black text-[#454545] sm:text-xl">
-                {isTagalog ? "Paglalarawan:" : "Descriptions:"}
+                {isTagalog ? "Paglalarawan:" : "Description:"}
               </h2>
 
               <p className="text-base leading-relaxed text-[#555555] sm:text-lg">
@@ -324,8 +378,12 @@ export default function NumbersTutorial() {
             className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 text-lg font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-6"
           >
             {isLast
-              ? isTagalog ? "Tapusin" : "Finish"
-              : isTagalog ? "Susunod" : "Next"}
+              ? isTagalog
+                ? "Tapusin"
+                : "Finish"
+              : isTagalog
+                ? "Susunod"
+                : "Next"}
             {isLast ? (
               <Check size={21} strokeWidth={3} aria-hidden="true" />
             ) : (

@@ -1,0 +1,320 @@
+import { Fragment, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Lock, Play, Volume2, VolumeX, Languages } from "lucide-react";
+import { useLanguage } from "../../../context/LanguageContext";
+import { useAudio } from "../../../context/AudioContext";
+
+import theoreticalImage from "../../../assets/theoretical.svg";
+import practicalImage from "../../../assets/practical.svg";
+import championshipImage from "../../../assets/championship.svg";
+import ropeImage from "../../../assets/rope.svg";
+
+interface IslandProps {
+  image: string;
+  name: string;
+  actionLabel: string;
+  locked: boolean;
+  ariaLabel: string;
+  onOpen: () => void;
+  className?: string;
+}
+
+const chunkyButton =
+  "flex h-12 shrink-0 items-center gap-2 rounded-2xl border-b-4 px-3 text-sm font-extrabold " +
+  "whitespace-nowrap sm:text-base md:px-4 " +
+  "transition-all duration-150 select-none " +
+  "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
+  "motion-reduce:transition-none motion-reduce:hover:transform-none";
+
+function Island({
+  image,
+  name,
+  actionLabel,
+  locked,
+  ariaLabel,
+  onOpen,
+  className = "",
+}: IslandProps) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={locked}
+      aria-label={ariaLabel}
+      className={`
+        group z-10 flex flex-col items-center rounded-3xl
+        focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-400
+        ${locked ? "cursor-not-allowed pointer-events-none opacity-60" : "cursor-pointer pointer-events-auto"}
+        ${className}
+      `}
+    >
+      {/* Island picture */}
+      <span className="relative flex h-40 w-40 items-center justify-center overflow-visible sm:h-56 sm:w-56">
+        <img
+          src={image}
+          alt=""
+          aria-hidden="true"
+          className={`
+            pointer-events-none h-full w-full scale-400 object-contain
+            transition-all duration-300 ease-in-out motion-reduce:transition-none
+            ${
+              locked
+                ? "grayscale"
+                : `group-hover:-translate-y-2 group-hover:brightness-110
+                   group-hover:drop-shadow-[0_0_18px_rgba(255,210,50,0.8)]
+                   group-active:scale-380`
+            }
+          `}
+        />
+      </span>
+
+      {/* Name */}
+      <span className="mt-1 rounded-full bg-white/80 px-4 py-1 text-base font-black text-[#164B9B] shadow-xs sm:text-lg">
+        {name}
+      </span>
+
+      {/* Action / status pill */}
+      <span
+        className={`
+          mt-2 flex items-center gap-2 whitespace-nowrap rounded-full border-b-4 px-5 py-2
+          text-base font-extrabold transition-all duration-150 motion-reduce:transition-none
+          ${
+            locked
+              ? "border-slate-300 bg-slate-100 text-slate-500"
+              : "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8] group-hover:-translate-y-0.5 group-hover:bg-[#D8BCFF] group-active:translate-y-0.5 group-active:border-b-2"
+          }
+        `}
+      >
+        {locked ? (
+          <Lock size={18} aria-hidden="true" />
+        ) : (
+          <Play size={18} aria-hidden="true" className="fill-current" />
+        )}
+        {actionLabel}
+      </span>
+    </button>
+  );
+}
+
+export default function NumberQuiz() {
+  const navigate = useNavigate();
+  const { language, toggleLanguage } = useLanguage();
+  const { isPlaying, volume, toggleMusic } = useAudio();
+  const isTagalog = language === "tl";
+
+  const [isTutorialCompleted, setIsTutorialCompleted] = useState(false);
+  const [hasPassedPractical, setHasPassedPractical] = useState(false);
+
+  const isMusicActive = isPlaying && volume > 0;
+
+  useEffect(() => {
+    try {
+      // Kunin ang current user email para hiwalay ang progress ng bawat account
+      const storedUser =
+        localStorage.getItem("kwelakids_current_user") ||
+        sessionStorage.getItem("kwelakids_current_user");
+      const currentUser = storedUser ? JSON.parse(storedUser) : null;
+      const userEmail = currentUser?.email || "default_user";
+
+      // Basahin ang tutorial status para sa account na ito
+      const tutorialDone =
+        localStorage.getItem(`kwelakids_${userEmail}_numbers_tutorial_completed`) === "true";
+      setIsTutorialCompleted(tutorialDone);
+
+      // Basahin ang practical pass status para sa account na ito
+      const practicalPassed =
+        localStorage.getItem(`kwelakids_${userEmail}_numbers_practical_passed`) === "true";
+      setHasPassedPractical(practicalPassed);
+    } catch {
+      // fallback kung may error sa storage
+    }
+  }, []);
+
+  const comingSoon = isTagalog ? "Malapit na" : "Coming soon";
+
+  const theoreticalPlayLabel = isTutorialCompleted
+    ? isTagalog ? "Rebyuhin" : "Review"
+    : isTagalog ? "Simulan" : "Start";
+
+  const playLabel = isTagalog ? "Maglaro" : "Play";
+
+  const islands = [
+    {
+      id: 1,
+      image: theoreticalImage,
+      name: isTagalog ? "Teorya" : "Theoretical",
+      position: "left-[13%] top-[52%]",
+      locked: false, // Laging bukas ang Teorya / Tutorial sa simula
+      actionLabel: theoreticalPlayLabel,
+      onOpen: () => {
+        navigate("/numberstutorial");
+      },
+    },
+    {
+      id: 2,
+      image: practicalImage,
+      name: isTagalog ? "Praktis" : "Practical",
+      position: "left-[44%] top-[39%]",
+      // Naka-lock habang hindi pa tapos ang Tutorial (Level-by-level)
+      locked: !isTutorialCompleted,
+      actionLabel: !isTutorialCompleted ? comingSoon : playLabel,
+      onOpen: () => {
+        navigate("/numberspractical");
+      },
+    },
+    {
+      id: 3,
+      image: championshipImage,
+      name: isTagalog ? "Kampeonato" : "Championship",
+      position: "right-[11%] top-[21%]",
+      // Naka-lock habang hindi pa nakakapasa sa Practical Quiz (Level-by-level)
+      locked: !hasPassedPractical,
+      actionLabel: !hasPassedPractical ? comingSoon : playLabel,
+      onOpen: () => {
+        navigate("/numberschampionship");
+      },
+    },
+  ];
+
+  const renderIsland = (
+    island: (typeof islands)[number],
+    className: string
+  ) => (
+    <Island
+      image={island.image}
+      name={island.name}
+      locked={island.locked}
+      actionLabel={island.actionLabel}
+      ariaLabel={
+        island.locked
+          ? `${island.name}: ${comingSoon}`
+          : isTagalog
+            ? `Buksan ang ${island.name}`
+            : `Open ${island.name}`
+      }
+      onOpen={island.onOpen}
+      className={className}
+    />
+  );
+
+  return (
+    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+      {/* SUB-HEADER: back button, category title, and quick controls */}
+      <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/categories")}
+            aria-label={isTagalog ? "Bumalik sa mga kategorya" : "Back to categories"}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
+          >
+            <ArrowLeft size={22} strokeWidth={2.5} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+              {isTagalog ? "Mga Numero" : "Numbers"}
+            </h1>
+            <p className="text-sm font-medium text-slate-600 sm:text-base">
+              {isTagalog
+                ? "Matutunan ang mga numero sa Filipino Sign Language."
+                : "Learn the numbers in Filipino Sign Language."}
+            </p>
+          </div>
+        </div>
+
+        {/* QUICK CONTROLS: Language & Music / Mute */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* LANGUAGE TOGGLE */}
+          <button
+            type="button"
+            onClick={() => toggleLanguage()}
+            aria-label={isTagalog ? "Palitan sa English" : "Switch to Tagalog"}
+            className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+          >
+            <Languages size={22} />
+            <span>{isTagalog ? "TL" : "EN"}</span>
+          </button>
+
+          {/* MUSIC / MUTE TOGGLE */}
+          <button
+            type="button"
+            onClick={() => toggleMusic()}
+            aria-pressed={isMusicActive}
+            aria-label={
+              isMusicActive
+                ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+            }
+            className={`${chunkyButton} ${
+              isMusicActive
+                ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            {isMusicActive ? (
+              <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+            ) : (
+              <VolumeX size={22} />
+            )}
+            <span className="hidden md:inline">
+              {isMusicActive
+                ? isTagalog ? "Tugtog" : "Music"
+                : isTagalog ? "Naka-mute" : "Muted"}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Clouds */}
+      <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
+      <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
+      <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
+      <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
+
+      {/* Decorative Bottom Clouds */}
+      <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
+      <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
+
+      {/* ===== PHONES AND TABLETS: islands stacked in a zigzag path ===== */}
+      <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8 lg:hidden">
+        {islands.map((island, index) => (
+          <Fragment key={island.id}>
+            {index > 0 && (
+              <div
+                aria-hidden="true"
+                className="my-2 h-10 w-0 border-l-4 border-dashed border-white/90"
+              />
+            )}
+            {renderIsland(island, index % 2 === 0 ? "self-start" : "self-end")}
+          </Fragment>
+        ))}
+      </div>
+
+      {/* ===== DESKTOP: the original map with ropes ===== */}
+      <div className="absolute inset-0 hidden lg:block">
+        {/* Rope 1: Theoretical to Practical */}
+        <img
+          src={ropeImage}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
+        />
+
+        {/* Rope 2: Practical to Championship */}
+        <img
+          src={ropeImage}
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
+        />
+
+        {islands.map((island) => (
+          <Fragment key={island.id}>
+            {renderIsland(island, `absolute ${island.position}`)}
+          </Fragment>
+        ))}
+      </div>
+    </main>
+  );
+}

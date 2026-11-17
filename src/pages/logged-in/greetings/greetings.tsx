@@ -1,12 +1,22 @@
 import { Fragment, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lock, Play } from "lucide-react";
+import { ArrowLeft, Lock, Play, Volume2, VolumeX, Languages } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useAudio } from "../../../context/AudioContext";
 
 import theoreticalImage from "../../../assets/theoretical.svg";
 import practicalImage from "../../../assets/practical.svg";
 import championshipImage from "../../../assets/championship.svg";
 import ropeImage from "../../../assets/rope.svg";
+
+// Shared "chunky 3D" button look
+const chunkyButton =
+  "flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border-b-4 px-2.5 text-sm font-extrabold " +
+  "whitespace-nowrap sm:h-12 sm:gap-2 sm:px-3 md:px-4 md:text-base " +
+  "transition-all duration-150 select-none " +
+  "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
+  "motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
 interface IslandProps {
   image: string;
@@ -90,8 +100,11 @@ function Island({
 
 export default function GreetingsPage() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
+  const { isPlaying, volume, toggleMusic } = useAudio();
+
   const isTagalog = language === "tl";
+  const isMusicActive = isPlaying && volume > 0;
 
   // Read once, and don't crash if storage is blocked
   const [isTutorialCompleted] = useState(() => {
@@ -160,7 +173,7 @@ export default function GreetingsPage() {
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      {/* SUB-HEADER: back button and category title */}
+      {/* SUB-HEADER: back button, category title, and quick controls */}
       <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
         <div className="flex items-center gap-3">
           <button
@@ -181,6 +194,48 @@ export default function GreetingsPage() {
                 : "Learn greetings in Filipino Sign Language."}
             </p>
           </div>
+        </div>
+
+        {/* QUICK ACTIONS (Translation & Music/Mute) */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          {/* LANGUAGE */}
+          <button
+            type="button"
+            onClick={() => toggleLanguage()}
+            aria-label={isTagalog ? "Palitan sa English" : "Switch to Tagalog"}
+            className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
+          >
+            <Languages size={22} />
+            <span>{isTagalog ? "TL" : "EN"}</span>
+          </button>
+
+          {/* MUSIC / MUTE */}
+          <button
+            type="button"
+            onClick={() => toggleMusic()}
+            aria-pressed={isMusicActive}
+            aria-label={
+              isMusicActive
+                ? isTagalog ? "I-mute ang tugtog" : "Mute music"
+                : isTagalog ? "I-unmute ang tugtog" : "Unmute music"
+            }
+            className={`${chunkyButton} ${
+              isMusicActive
+                ? "border-amber-300 bg-amber-100 text-amber-700 hover:bg-amber-200"
+                : "border-slate-300 bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            {isMusicActive ? (
+              <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+            ) : (
+              <VolumeX size={22} />
+            )}
+            <span className="hidden lg:inline">
+              {isMusicActive
+                ? isTagalog ? "Tugtog" : "Music"
+                : isTagalog ? "Naka-mute" : "Muted"}
+            </span>
+          </button>
         </div>
       </div>
 
