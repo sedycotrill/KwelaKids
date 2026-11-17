@@ -1,9 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Languages,
+  Award,
+} from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
+import { useAudio } from "../../../context/AudioContext";
+import { useAuth } from "../../../context/AuthContext";
+import { supabase } from "../../../lib/supabase";
 
-const GREETINGS = [
+const PART_KEY = "part_1";
+
+const GREETINGS_PART_1 = [
   "Greeting",
   "Hi",
   "Hello",
@@ -18,19 +32,6 @@ const GREETINGS = [
   "See You Next Week",
   "Please",
   "Thank You",
-  "Welcome",
-  "What Is Your Name?",
-  "My Name Is",
-  "Nice to Meet You",
-  "How Are You?",
-  "I'm Fine",
-  "Happy Birthday",
-  "Happy Valentine",
-  "Happy Anniversary",
-  "Happy Mother's Day",
-  "Happy Father's Day",
-  "Merry Christmas",
-  "Happy New Year",
 ];
 
 // Greeting video timestamps in seconds.
@@ -49,19 +50,6 @@ const GREETING_TIMESTAMPS: Record<string, { start: number; end: number }> = {
   "See You Next Week": { start: 138, end: 152 },
   "Please": { start: 153, end: 160 },
   "Thank You": { start: 161, end: 171 },
-  "Welcome": { start: 172, end: 184 },
-  "What Is Your Name?": { start: 185, end: 198 },
-  "My Name Is": { start: 199, end: 212 },
-  "Nice to Meet You": { start: 213, end: 224 },
-  "How Are You?": { start: 225, end: 233 },
-  "I'm Fine": { start: 234, end: 239 },
-  "Happy Birthday": { start: 240, end: 253 },
-  "Happy Valentine": { start: 254, end: 262 },
-  "Happy Anniversary": { start: 263, end: 274 },
-  "Happy Mother's Day": { start: 275, end: 291 },
-  "Happy Father's Day": { start: 292, end: 303 },
-  "Merry Christmas": { start: 304, end: 317 },
-  "Happy New Year": { start: 319, end: 329 },
 };
 
 // English descriptions
@@ -80,19 +68,6 @@ const DESCRIPTIONS_EN: Record<string, string> = {
   "See You Next Week": "Raise your index and middle fingers near your face. Position your other hand horizontally in front of your chest, then bring the two-finger hand toward your other hand.",
   "Please": "Place one open hand over the center of your chest. Keep your fingers together and follow the demonstrated movement.",
   "Thank You": "Bring your fingertips toward your chin or mouth with your palm facing inward. Move your hand forward and away from your face.",
-  "Welcome": "Start with one open hand near your mouth. Move it outward, then extend your other hand forward with its palm facing upward.",
-  "What Is Your Name?": "Raise one index finger upright in front of your chest. Form the demonstrated handshape with your other hand and bring your hands together.",
-  "My Name Is": "Point toward yourself with one index finger near your chest. Then bring both hands together in front of your body and follow the demonstrated finger movement.",
-  "Nice to Meet You": "Place one open hand horizontally over your other hand in front of your chest. Move your hands together following the instructor's demonstration.",
-  "How Are You?": "Raise both hands in front of your chest with your thumbs pointing upward. Move your hands toward each other as demonstrated.",
-  "I'm Fine": "Open your hand and spread your fingers apart. Keep your palm facing your chest, then touch your thumb against your chest twice to sign I'm Fine.",
-  "Happy Birthday": "Bring both hands near your chest. Move your hands upward toward your mouth, then open your hands and move them outward as demonstrated.",
-  "Happy Valentine": "Raise both hands in front of your chest and form the demonstrated two-finger handshapes. Follow the instructor's finger positioning and movement.",
-  "Happy Anniversary": "Move one open hand across your chest, then bring your other hand toward the center of your body. Follow the demonstrated sequence.",
-  "Happy Mother's Day": "Raise one open hand beside your face and move it outward. Then bring your hand toward your chin and chest before crossing your arms in front of your body.",
-  "Happy Father's Day": "Move one open hand from near your mouth toward your chest. Then bring your hands across the front of your body as demonstrated.",
-  "Merry Christmas": "Using both hands, keep all your fingers extended and close together. Start near your neck and move both hands horizontally in a circular, waving motion down toward your chest. Next, position your hands in front of the upper part of your nose and make a circular movement downward toward your chest, imitating the appearance of Christmas lights.",
-  "Happy New Year": "Raise both open hands in front of your chest with palms facing upward. Move your hands forward and upward following the demonstrated motion.",
 };
 
 // Tagalog descriptions
@@ -111,41 +86,445 @@ const DESCRIPTIONS_TL: Record<string, string> = {
   "See You Next Week": "Itaas ang hintuturo at gitna malapit sa iyong mukha. Iposisyon ang kabilang kamay nang pahalang sa harap ng dibdib, pagkatapos ay ilapit ang dalawang daliri rito.",
   "Please": "Ilagay ang isang bukas na kamay sa gitna ng iyong dibdib. Panatilihing magkakalapit ang mga daliri at sundin ang galaw.",
   "Thank You": "Dalhin ang mga dulo ng iyong daliri patungo sa iyong baba o bibig habang nakaharap ang palad paloob. Igalaw ang kamay pasulong palayo sa mukha.",
-  "Welcome": "Magsimula sa isang bukas na kamay malapit sa iyong bibig. Igalaw ito palabas, pagkatapos ay iunat ang kabilang kamay pasulong na nakaharap paitaas ang palad.",
-  "What Is Your Name?": "Itaas ang isang hintuturo nang tuwid sa harap ng iyong dibdib. Bumuo ng tamang hugis ng kamay sa kabilang kamay at paglapitin ang mga ito.",
-  "My Name Is": "Ituro ang iyong sarili gamit ang isang hintuturo malapit sa dibdib. Pagkatapos ay paglapitin ang dalawang kamay sa harap ng katawan.",
-  "Nice to Meet You": "Ilagay ang isang bukas na kamay nang pahalang sa ibabaw ng kabilang kamay sa harap ng dibdib. Igalaw ang mga kamay nang sabay.",
-  "How Are You?": "Itaas ang parehong kamay sa harap ng iyong dibdib na nakaturo paitaas ang mga hinlalaki. Igalaw ang mga kamay papalapit sa isa't isa.",
-  "I'm Fine": "Buksan ang iyong kamay at paglayuin ang mga daliri. Panatilihing nakaharap ang palad sa iyong dibdib, pagkatapos ay idikit ang hinlalaki sa dibdib nang dalawang beses.",
-  "Happy Birthday": "Dalhin ang parehong kamay malapit sa iyong dibdib. Igalaw ito paitaas patungo sa bibig, pagkatapos ay buksan ang mga kamay palabas.",
-  "Happy Valentine": "Itaas ang parehong kamay sa harap ng dibdib at bumuo ng ipinakitang hugis ng daliri. Sundin ang posisyon ng guro.",
-  "Happy Anniversary": "Igalaw ang isang bukas na kamay sa kabuuan ng iyong dibdib, pagkatapos ay dalhin ang kabilang kamay sa gitna ng katawan.",
-  "Happy Mother's Day": "Itaas ang isang bukas na kamay sa tabi ng mukha at igalaw palabas. Dalhin ang kamay sa baba at dibdib bago i-krus ang mga braso.",
-  "Happy Father's Day": "Igalaw ang isang bukas na kamay mula malapit sa bibig patungo sa dibdib. Dalhin ang mga kamay sa harap ng katawan.",
-  "Merry Christmas": "Gamit ang parehong kamay, panatilihing nakaunat at magkakalapit ang mga daliri. Magsimula malapit sa leeg at igalaw nang pahalang at paikot pababa sa dibdib. Pagkatapos ay ilagay sa harap ng ilong at gumawa ng paikot na galaw pababa para gayahin ang Christmas lights.",
-  "Happy New Year": "Itaas ang parehong bukas na kamay sa harap ng dibdib na nakaharap paitaas ang mga palad. Igalaw ang mga kamay pasulong at paitaas.",
 };
 
-export default function GreetingsTutorial() {
+const CHECKPOINT_AFTER_INDEX = 6; // Checkpoint sa kalagitnaan ng Part 1
+const QUICK_TEST_LENGTH = 3;
+
+type QuickTestQuestion = {
+  questionEn: string;
+  questionTl: string;
+  greeting: string;
+  answer: string;
+  options: string[];
+};
+
+const seededRandom = (seedText: string) => {
+  let seed = 0;
+  for (let i = 0; i < seedText.length; i += 1) {
+    seed = (seed * 31 + seedText.charCodeAt(i)) >>> 0;
+  }
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+};
+
+const shuffleWithSeed = <T,>(items: T[], random: () => number): T[] => {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+const createQuickTestQuestions = (
+  pool: string[],
+  seed: string
+): QuickTestQuestion[] => {
+  const random = seededRandom(seed);
+  const selected = shuffleWithSeed(pool, random).slice(0, QUICK_TEST_LENGTH);
+
+  return selected.map((item) => {
+    const distractors = shuffleWithSeed(
+      GREETINGS_PART_1.filter((candidate) => candidate !== item),
+      random
+    ).slice(0, 3);
+
+    return {
+      questionEn: "Which greeting matches this FSL sign?",
+      questionTl: "Anong bati ang ipinapakita sa senyas na ito?",
+      greeting: item,
+      answer: item,
+      options: shuffleWithSeed([item, ...distractors], random),
+    };
+  });
+};
+
+const chunkyButton =
+  "flex h-12 shrink-0 items-center gap-2 rounded-2xl border-b-4 px-3 text-sm font-extrabold " +
+  "whitespace-nowrap sm:text-base md:px-4 " +
+  "transition-all duration-150 select-none " +
+  "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
+  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
+  "motion-reduce:transition-none motion-reduce:hover:transform-none";
+
+export default function GreetingsTutorialPart1() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
+  const { isPlaying, volume, toggleMusic } = useAudio();
+  const { user, loading: authLoading } = useAuth();
   const isTagalog = language === "tl";
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isQuickTest, setIsQuickTest] = useState(false);
+  const [testIndex, setTestIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
+  const [answers, setAnswers] = useState<(string | null)[]>(
+    Array(QUICK_TEST_LENGTH).fill(null)
+  );
+
+  const [quickTestQuestions, setQuickTestQuestions] = useState<QuickTestQuestion[]>([]);
+  const [quickTestAttemptId, setQuickTestAttemptId] = useState<string | null>(null);
+  const [partCompleted, setPartCompleted] = useState(false);
+
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [syncFailed, setSyncFailed] = useState(false);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+
   const videoRef = useRef<HTMLVideoElement>(null);
+  const testVideoRef = useRef<HTMLVideoElement>(null);
   const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const total = GREETINGS.length;
-  const currentGreeting = GREETINGS[currentIndex];
+  const total = GREETINGS_PART_1.length;
+  const currentGreeting = GREETINGS_PART_1[currentIndex];
   const isLast = currentIndex === total - 1;
 
-  const timestamp = GREETING_TIMESTAMPS[currentGreeting] || { start: 0, end: 5 };
-  const description = isTagalog ? DESCRIPTIONS_TL[currentGreeting] : DESCRIPTIONS_EN[currentGreeting];
+  const checkpointNumber = currentIndex > CHECKPOINT_AFTER_INDEX ? 2 : 1;
+  const checkpointPool =
+    checkpointNumber === 1
+      ? GREETINGS_PART_1.slice(0, CHECKPOINT_AFTER_INDEX + 1)
+      : GREETINGS_PART_1.slice(CHECKPOINT_AFTER_INDEX + 1);
 
-  // Jump the video to the start of the current greeting segment
+  const QUICK_TEST_QUESTIONS =
+    quickTestQuestions.length === QUICK_TEST_LENGTH
+      ? quickTestQuestions
+      : createQuickTestQuestions(
+          checkpointPool,
+          `${user?.id ?? "guest"}-${PART_KEY}-checkpoint-${checkpointNumber}`
+        );
+
+  const timestamp = GREETING_TIMESTAMPS[currentGreeting] || { start: 0, end: 5 };
+  const description = isTagalog
+    ? DESCRIPTIONS_TL[currentGreeting]
+    : DESCRIPTIONS_EN[currentGreeting];
+  const isMusicActive = isPlaying && volume > 0;
+
+  const queueSave = (operation: () => Promise<void>, label: string): Promise<boolean> => {
+    const run = saveQueue.current.then(operation);
+    saveQueue.current = run.then(
+      () => undefined,
+      () => undefined
+    );
+
+    return run.then(
+      () => {
+        setSyncFailed(false);
+        return true;
+      },
+      (err) => {
+        console.error(label, err);
+        setSyncFailed(true);
+        return false;
+      }
+    );
+  };
+
+  const saveProgress = (
+    greetingIndex: number,
+    completed = false,
+    score: number | null = null
+  ): Promise<boolean> => {
+    if (!user) {
+      setSyncFailed(true);
+      return Promise.resolve(false);
+    }
+
+    return queueSave(async () => {
+      const now = new Date().toISOString();
+      const progressData = {
+        user_id: user.id,
+        part_key: PART_KEY,
+        tutorial_current_index: greetingIndex,
+        tutorial_completed_at: completed ? now : null,
+        updated_at: now,
+      };
+
+      const { error } = await supabase
+        .from("greetings_progress")
+        .upsert(progressData, { onConflict: "user_id,part_key" });
+
+      if (error) throw error;
+    }, "Unable to save greetings progress:");
+  };
+
+  const saveQuickTestProgress = (
+    greetingIndex: number,
+    questionIndex: number,
+    savedAnswers: (string | null)[]
+  ): Promise<boolean> => {
+    if (!user) {
+      setSyncFailed(true);
+      return Promise.resolve(false);
+    }
+
+    return queueSave(async () => {
+      const progressData = {
+        user_id: user.id,
+        part_key: PART_KEY,
+        tutorial_current_index: greetingIndex,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("greetings_progress")
+        .upsert(progressData, { onConflict: "user_id,part_key" });
+
+      if (error) throw error;
+    }, "Unable to save quick test progress:");
+  };
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setProgressLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadProgress = async () => {
+      setProgressLoading(true);
+      try {
+        const { data: progress, error: progressQueryError } = await supabase
+          .from("greetings_progress")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("part_key", PART_KEY)
+          .maybeSingle();
+
+        if (progressQueryError) throw progressQueryError;
+        if (!isMounted) return;
+
+        const savedIndex = Math.min(
+          Math.max(Number(progress?.tutorial_current_index ?? 0), 0),
+          GREETINGS_PART_1.length - 1
+        );
+
+        setCurrentIndex(savedIndex);
+        setPartCompleted(Boolean(progress?.tutorial_completed_at));
+
+        const { data: activeAttempts, error: attemptQueryError } = await supabase
+          .from("greetings_assessment_attempts")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("assessment_type", "quick_test")
+          .eq("part_key", PART_KEY)
+          .eq("status", "in_progress")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (attemptQueryError) throw attemptQueryError;
+        if (!isMounted) return;
+        const activeAttempt = activeAttempts?.[0];
+
+        const attemptCheckpoint = Number(activeAttempt?.checkpoint_number) === 1 ? 1 : 2;
+        const progressCheckpoint = savedIndex > CHECKPOINT_AFTER_INDEX ? 2 : 1;
+        const alreadyCompleted = Boolean(progress?.tutorial_completed_at);
+        const shouldResume =
+          Boolean(activeAttempt) &&
+          !alreadyCompleted &&
+          attemptCheckpoint === progressCheckpoint;
+
+        if (activeAttempt && shouldResume) {
+          const checkpoint = Number(activeAttempt.checkpoint_number) === 1 ? 1 : 2;
+          const pool =
+            checkpoint === 1
+              ? GREETINGS_PART_1.slice(0, CHECKPOINT_AFTER_INDEX + 1)
+              : GREETINGS_PART_1.slice(CHECKPOINT_AFTER_INDEX + 1);
+
+          const storedQuestions = Array.isArray(activeAttempt.questions)
+            ? activeAttempt.questions
+            : [];
+
+          const restoredQuestions =
+            storedQuestions.length === QUICK_TEST_LENGTH
+              ? storedQuestions
+              : createQuickTestQuestions(
+                  pool,
+                  `${user.id}-${PART_KEY}-checkpoint-${checkpoint}`
+                );
+
+          const storedAnswers = Array.isArray(activeAttempt.answers)
+            ? activeAttempt.answers
+            : [];
+          const restoredAnswers = Array.from(
+            { length: QUICK_TEST_LENGTH },
+            (_, index) =>
+              typeof storedAnswers[index] === "string"
+                ? (storedAnswers[index] as string)
+                : null
+          );
+
+          const firstUnanswered = restoredAnswers.findIndex((a) => a === null);
+          const restoredIndex = firstUnanswered === -1 ? QUICK_TEST_LENGTH - 1 : firstUnanswered;
+          const restoredAnswer = restoredAnswers[restoredIndex];
+
+          const checkpointIndex =
+            checkpoint === 1 ? CHECKPOINT_AFTER_INDEX : GREETINGS_PART_1.length - 1;
+
+          setCurrentIndex(checkpointIndex);
+          setQuickTestAttemptId(activeAttempt.id);
+          setQuickTestQuestions(restoredQuestions);
+          setAnswers(restoredAnswers);
+          setTestIndex(restoredIndex);
+          setSelectedAnswer(restoredAnswer);
+          setIsCorrect(
+            restoredAnswer === null
+              ? null
+              : restoredAnswer === restoredQuestions[restoredIndex].answer
+          );
+          setIsQuickTest(true);
+        }
+      } catch (err) {
+        console.error("Error loading greetings progress:", err);
+        if (isMounted) setSyncFailed(true);
+      } finally {
+        if (isMounted) setProgressLoading(false);
+      }
+    };
+
+    loadProgress();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, authLoading]);
+
+  const createQuickTestAttempt = async () => {
+    if (!user) return;
+    const checkpoint = currentIndex <= CHECKPOINT_AFTER_INDEX ? 1 : 2;
+    const pool =
+      checkpoint === 1
+        ? GREETINGS_PART_1.slice(0, CHECKPOINT_AFTER_INDEX + 1)
+        : GREETINGS_PART_1.slice(CHECKPOINT_AFTER_INDEX + 1);
+
+    const questions = createQuickTestQuestions(
+      pool,
+      `${user.id}-${PART_KEY}-checkpoint-${checkpoint}-${Date.now()}`
+    );
+    const initialAnswers: (string | null)[] = Array(QUICK_TEST_LENGTH).fill(null);
+
+    setQuickTestQuestions(questions);
+    setAnswers(initialAnswers);
+    setTestIndex(0);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+
+    await saveQuickTestProgress(currentIndex, 0, initialAnswers);
+
+    try {
+      const { data, error } = await supabase
+        .from("greetings_assessment_attempts")
+        .insert({
+          user_id: user.id,
+          assessment_type: "quick_test",
+          part_key: PART_KEY,
+          checkpoint_number: checkpoint,
+          questions,
+          answers: initialAnswers,
+          score: null,
+          total_questions: QUICK_TEST_LENGTH,
+          status: "in_progress",
+          started_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      if (data) setQuickTestAttemptId(data.id);
+    } catch (err) {
+      console.error("Unable to create quick test attempt:", err);
+      setSyncFailed(true);
+    }
+  };
+
+  const persistAttemptAnswers = async (
+    updatedAnswers: (string | null)[],
+    qIndex: number
+  ) => {
+    if (!user) return;
+
+    if (quickTestAttemptId) {
+      try {
+        const { error } = await supabase
+          .from("greetings_assessment_attempts")
+          .update({ answers: updatedAnswers })
+          .eq("id", quickTestAttemptId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error("Unable to save quick test answer:", err);
+        setSyncFailed(true);
+      }
+    }
+
+    await saveQuickTestProgress(currentIndex, qIndex, updatedAnswers);
+  };
+
+  const resetQuickTestState = () => {
+    setQuickTestAttemptId(null);
+    setQuickTestQuestions([]);
+    setAnswers(Array(QUICK_TEST_LENGTH).fill(null));
+    setTestIndex(0);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setIsQuickTest(false);
+  };
+
+  const completeQuickTestAttempt = async () => {
+    const score = QUICK_TEST_QUESTIONS.reduce(
+      (sum, q, idx) => sum + (answers[idx] === q.answer ? 1 : 0),
+      0
+    );
+
+    const now = new Date().toISOString();
+
+    if (quickTestAttemptId && user) {
+      try {
+        const { error } = await supabase
+          .from("greetings_assessment_attempts")
+          .update({
+            answers,
+            score,
+            total_questions: QUICK_TEST_LENGTH,
+            status: "completed",
+            completed_at: now,
+          })
+          .eq("id", quickTestAttemptId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error("Unable to complete quick test attempt:", err);
+        setSyncFailed(true);
+      }
+    }
+
+    if (currentIndex === CHECKPOINT_AFTER_INDEX) {
+      const nextIndex = CHECKPOINT_AFTER_INDEX + 1;
+      const saved = await saveProgress(nextIndex, partCompleted, score);
+      if (!saved) return;
+
+      setCurrentIndex(nextIndex);
+      resetQuickTestState();
+      return;
+    }
+
+    const saved = await saveProgress(GREETINGS_PART_1.length - 1, true, score);
+    if (!saved) return;
+
+    setPartCompleted(true);
+    resetQuickTestState();
+    navigate("/greetings");
+  };
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || isQuickTest) return;
 
     const setVideoSegment = () => {
       video.pause();
@@ -155,32 +534,47 @@ export default function GreetingsTutorial() {
     if (video.readyState >= 1) {
       setVideoSegment();
     } else {
-      video.addEventListener("loadedmetadata", setVideoSegment, {
-        once: true,
-      });
+      video.addEventListener("loadedmetadata", setVideoSegment, { once: true });
     }
-
     return () => {
       video.removeEventListener("loadedmetadata", setVideoSegment);
     };
-  }, [currentGreeting, timestamp.start, timestamp.end]);
+  }, [currentGreeting, timestamp.start, isQuickTest]);
 
-  // Keep the selected greeting chip in view inside the scrolling strip
   useEffect(() => {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!isQuickTest) return;
+    const video = testVideoRef.current;
+    if (!video) return;
 
-    chipRefs.current[currentIndex]?.scrollIntoView({
-      behavior: reduceMotion ? "auto" : "smooth",
-      inline: "nearest", // Inayos para hindi mag-stretch o humila sa dulo
-      block: "nearest",
-    });
-  }, [currentIndex]);
+    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+    const qTimestamp = GREETING_TIMESTAMPS[currentQ.greeting] || { start: 0, end: 5 };
+
+    const setTestVideoSegment = () => {
+      video.pause();
+      video.currentTime = qTimestamp.start;
+    };
+
+    if (video.readyState >= 1) {
+      setTestVideoSegment();
+    } else {
+      video.addEventListener("loadedmetadata", setTestVideoSegment, { once: true });
+    }
+  }, [isQuickTest, testIndex, QUICK_TEST_QUESTIONS]);
 
   const handleVideoTimeUpdate = () => {
     const video = videoRef.current;
     if (!video) return;
-
     if (timestamp.end > timestamp.start && video.currentTime >= timestamp.end) {
+      video.pause();
+    }
+  };
+
+  const handleTestVideoTimeUpdate = () => {
+    const video = testVideoRef.current;
+    if (!video) return;
+    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+    const qTimestamp = GREETING_TIMESTAMPS[currentQ.greeting] || { start: 0, end: 5 };
+    if (qTimestamp.end > qTimestamp.start && video.currentTime >= qTimestamp.end) {
       video.pause();
     }
   };
@@ -188,38 +582,263 @@ export default function GreetingsTutorial() {
   const handleVideoPlay = () => {
     const video = videoRef.current;
     if (!video) return;
-
     if (video.currentTime >= timestamp.end - 0.1 || video.currentTime < timestamp.start) {
       video.currentTime = timestamp.start;
+    }
+  };
+
+  const handleTestVideoPlay = () => {
+    const video = testVideoRef.current;
+    if (!video) return;
+    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+    const qTimestamp = GREETING_TIMESTAMPS[currentQ.greeting] || { start: 0, end: 5 };
+    if (video.currentTime >= qTimestamp.end - 0.1 || video.currentTime < qTimestamp.start) {
+      video.currentTime = qTimestamp.start;
     }
   };
 
   const handleReplay = () => {
     const video = videoRef.current;
     if (!video) return;
-
     video.currentTime = timestamp.start;
     video.play().catch(() => {});
   };
 
-  const handleNext = () => {
-    if (!isLast) {
-      setCurrentIndex((prev) => prev + 1);
+  const handleTestReplay = () => {
+    const video = testVideoRef.current;
+    if (!video) return;
+    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+    const qTimestamp = GREETING_TIMESTAMPS[currentQ.greeting] || { start: 0, end: 5 };
+    video.currentTime = qTimestamp.start;
+    video.play().catch(() => {});
+  };
+
+  const handleNext = async () => {
+    const isCheckpoint = currentIndex === CHECKPOINT_AFTER_INDEX || isLast;
+
+    if (isCheckpoint) {
+      try {
+        if (!quickTestAttemptId) {
+          await createQuickTestAttempt();
+        }
+      } catch (err) {
+        console.error("Quick test start error:", err);
+        setSyncFailed(true);
+      }
+      setIsQuickTest(true);
       return;
     }
 
-    // Kunin ang current user para ma-save ang greetings tutorial completion para sa account na ito
-    const storedUser =
-      localStorage.getItem("kwelakids_current_user") ||
-      sessionStorage.getItem("kwelakids_current_user");
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const userEmail = currentUser?.email || "default_user";
-
-    try {
-      localStorage.setItem(`kwelakids_${userEmail}_greetings_tutorial_completed`, "true");
-    } catch {}
-    navigate("/greetingscomplete");
+    const nextIndex = currentIndex + 1;
+    setCurrentIndex(nextIndex);
+    await saveProgress(nextIndex, partCompleted);
   };
+
+  const syncBanner = syncFailed ? (
+    <div
+      role="alert"
+      className="mb-4 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700"
+    >
+      {isTagalog
+        ? "Hindi na-save o na-load ang iyong progreso. Pakisuri ang iyong internet connection."
+        : "Your progress could not be saved or loaded. Please check your connection."}
+    </div>
+  ) : null;
+
+  if (authLoading || progressLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#E4F4FF] px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#B8DDF6] border-t-[#36A9F4]" />
+          <p className="font-bold text-[#164B9B]">
+            {isTagalog ? "Nilo-load ang iyong progreso..." : "Loading your progress..."}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // Quick Test Mode View
+  if (isQuickTest) {
+    const currentQ = QUICK_TEST_QUESTIONS[testIndex];
+
+    return (
+      <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+        <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
+        <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
+
+        <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={async () => {
+                await saveQuickTestProgress(currentIndex, testIndex, answers);
+                setIsQuickTest(false);
+              }}
+              aria-label={isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+            >
+              <ArrowLeft size={22} strokeWidth={2.5} />
+            </button>
+
+            <div>
+              <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+                {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
+              </h1>
+              <p className="text-sm font-medium text-slate-600 sm:text-base">
+                {isTagalog
+                  ? `Checkpoint ${checkpointNumber}: Bahagi 1`
+                  : `Checkpoint ${checkpointNumber}: Part 1`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+          {syncBanner}
+          <div className="mb-4">
+            <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
+              {isTagalog
+                ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_LENGTH}`
+                : `Question ${testIndex + 1} of ${QUICK_TEST_LENGTH}`}
+            </p>
+
+            <div className="h-3 w-full overflow-hidden rounded-full bg-white/80" aria-hidden="true">
+              <div
+                className="h-full rounded-full bg-[#36A9F4] transition-all duration-300"
+                style={{
+                  width: `${((testIndex + 1) / QUICK_TEST_LENGTH) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
+            <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
+              <video
+                ref={testVideoRef}
+                src="/videos/FSLgreetings.mp4"
+                controls
+                playsInline
+                preload="metadata"
+                onTimeUpdate={handleTestVideoTimeUpdate}
+                onPlay={handleTestVideoPlay}
+                className="h-full w-full object-contain"
+              />
+            </div>
+
+            <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
+              <div className="flex items-center gap-2 text-[#36A9F4]">
+                <Award size={22} />
+                <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
+                  {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
+                </span>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
+                  {isTagalog ? currentQ.questionTl : currentQ.questionEn}
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {currentQ.options.map((opt) => {
+                  let btnStyle =
+                    "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
+
+                  if (selectedAnswer === opt) {
+                    btnStyle = isCorrect
+                      ? "border-emerald-500 bg-emerald-100 text-emerald-700"
+                      : "border-rose-500 bg-rose-100 text-rose-700";
+                  } else if (selectedAnswer && opt === currentQ.answer) {
+                    btnStyle =
+                      "border-emerald-500 bg-emerald-100 text-emerald-700";
+                  }
+
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={selectedAnswer !== null}
+                      onClick={async () => {
+                        const updated = [...answers];
+                        updated[testIndex] = opt;
+                        setAnswers(updated);
+                        setSelectedAnswer(opt);
+                        setIsCorrect(opt === currentQ.answer);
+                        await persistAttemptAnswers(updated, testIndex);
+                      }}
+                      className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-sm font-black transition-all disabled:cursor-not-allowed ${btnStyle}`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTestReplay}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+              >
+                <RotateCcw size={20} aria-hidden="true" />
+                {isTagalog ? "Panoorin ulit" : "Watch again"}
+              </button>
+            </div>
+          </div>
+
+          {selectedAnswer !== null && (
+            <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
+              <p
+                className={`text-base font-extrabold ${isCorrect ? "text-emerald-600" : "text-rose-600"}`}
+              >
+                {isCorrect
+                  ? isTagalog
+                    ? "Magaling! Tama ang sagot mo! 🎉"
+                    : "Great job! Correct answer! 🎉"
+                  : isTagalog
+                    ? `Mali! Ang tamang sagot ay ${currentQ.answer}.`
+                    : `Incorrect! The correct answer is ${currentQ.answer}.`}
+              </p>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (testIndex < QUICK_TEST_LENGTH - 1) {
+                    const next = testIndex + 1;
+                    setTestIndex(next);
+                    setSelectedAnswer(answers[next]);
+                    setIsCorrect(
+                      answers[next] === null
+                        ? null
+                        : answers[next] === QUICK_TEST_QUESTIONS[next].answer
+                    );
+                  } else {
+                    await completeQuickTestAttempt();
+                  }
+                }}
+                className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2"
+              >
+                {testIndex < QUICK_TEST_LENGTH - 1
+                  ? isTagalog
+                    ? "Susunod na Tanong"
+                    : "Next Question"
+                  : isTagalog
+                    ? checkpointNumber === 1
+                      ? "Magpatuloy sa Susunod"
+                      : "Tapusin ang Bahagi 1"
+                    : checkpointNumber === 1
+                      ? "Continue"
+                      : "Finish Part 1"}
+
+                <ArrowRight size={21} strokeWidth={3} />
+              </button>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
@@ -229,76 +848,74 @@ export default function GreetingsTutorial() {
           <button
             type="button"
             onClick={() => navigate("/greetings")}
-            aria-label={isTagalog ? "Bumalik sa menu ng mga bati" : "Back to greetings menu"}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4]"
           >
             <ArrowLeft size={22} strokeWidth={2.5} />
           </button>
           <div>
             <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
-              {isTagalog ? "Tutorial sa mga Bati" : "Greetings Tutorial"}
+              {isTagalog ? "Tutorial sa mga Bati (Bahagi 1)" : "Greetings Tutorial (Part 1)"}
             </h1>
             <p className="text-sm font-medium text-slate-600 sm:text-base">
-              {isTagalog
-                ? "Matutunan ang bawat bati hakbang-hakbang."
-                : "Learn each greeting step by step."}
+              {isTagalog ? "Matutunan ang mga bati hakbang-hakbang." : "Learn greetings step by step."}
             </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => toggleLanguage()}
+            className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700`}
+          >
+            <Languages size={22} />
+            <span>{isTagalog ? "TL" : "EN"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => toggleMusic()}
+            className={`${chunkyButton} ${isMusicActive ? "border-amber-300 bg-amber-100 text-amber-700" : "border-slate-300 bg-slate-100 text-slate-500"}`}
+          >
+            {isMusicActive ? <Volume2 size={22} /> : <VolumeX size={22} />}
+          </button>
+        </div>
       </div>
 
-      {/* Decorative Clouds */}
-      <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
-      <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
-      <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />
-      <div className="pointer-events-none absolute -bottom-16 right-[-5%] h-40 w-80 rounded-full bg-white/60 blur-xl" />
-
-      <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
-      <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
-
-      {/* CONTENT */}
       <section className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
-        {/* PROGRESS */}
+        {syncBanner}
         <div className="mb-4">
-          <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
-            {isTagalog
-              ? `Bati ${currentIndex + 1} ng ${total}`
-              : `Greeting ${currentIndex + 1} of ${total}`}
+          <p className="mb-2 text-sm font-extrabold text-[#164B9B]">
+            {isTagalog ? `Bati ${currentIndex + 1} ng ${total}` : `Greeting ${currentIndex + 1} of ${total}`}
           </p>
-          <div
-            className="h-3 w-full overflow-hidden rounded-full bg-white/80"
-            aria-hidden="true"
-          >
+          <div className="h-3 w-full overflow-hidden rounded-full bg-white/80">
             <div
-              className="h-full rounded-full bg-[#36A9F4] transition-all duration-300 motion-reduce:transition-none"
+              className="h-full rounded-full bg-[#36A9F4]"
               style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
             />
           </div>
         </div>
 
-        {/* GREETING PICKER STRIP */}
-        <div
-          className="mb-5 flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full max-w-full"
-          role="group"
-          aria-label={isTagalog ? "Piliin ang bati" : "Choose a greeting"}
-        >
-          {GREETINGS.map((greeting, position) => {
+        {/* GREETINGS CHIPS */}
+        <div className="mb-5 flex w-full max-w-full gap-2 overflow-x-auto pb-2">
+          {GREETINGS_PART_1.map((greeting, position) => {
             const isCurrent = position === currentIndex;
-
             return (
               <button
                 key={greeting}
-                ref={(element) => {
-                  chipRefs.current[position] = element;
+                ref={(el) => {
+                  chipRefs.current[position] = el;
                 }}
                 type="button"
-                onClick={() => setCurrentIndex(position)}
-                aria-current={isCurrent ? "step" : undefined}
-                aria-label={greeting}
-                className={`flex h-11 shrink-0 items-center justify-center px-4 rounded-xl border-b-4 text-sm font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none whitespace-nowrap ${
+                onClick={async () => {
+                  if (currentIndex <= CHECKPOINT_AFTER_INDEX && position > CHECKPOINT_AFTER_INDEX) return;
+                  setCurrentIndex(position);
+                  await saveProgress(position, partCompleted);
+                }}
+                className={`flex h-11 shrink-0 items-center justify-center px-4 rounded-xl border-b-4 text-sm font-black whitespace-nowrap ${
                   isCurrent
                     ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
-                    : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
+                    : "border-[#B8DDF6] bg-white text-[#426A91]"
                 }`}
               >
                 {greeting}
@@ -309,8 +926,7 @@ export default function GreetingsTutorial() {
 
         {/* TUTORIAL CARD */}
         <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-[#B8DDF6] bg-white shadow-sm md:grid-cols-[57%_43%]">
-          {/* Local Video */}
-          <div className="relative aspect-video w-full overflow-hidden bg-black flex items-center justify-center">
+          <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black">
             <video
               ref={videoRef}
               src="/videos/FSLgreetings.mp4"
@@ -323,63 +939,61 @@ export default function GreetingsTutorial() {
             />
           </div>
 
-          {/* Description */}
           <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
             <div className="flex flex-col items-center justify-center">
               <span className="text-2xl font-black text-[#426A91] text-center sm:text-3xl">
                 {currentGreeting}
               </span>
             </div>
-
             <div>
-              <h2 className="mb-1 text-lg font-black text-[#454545] sm:text-xl">
-                {isTagalog ? "Paglalarawan:" : "Descriptions:"}
+              <h2 className="mb-1 text-lg font-black text-[#454545]">
+                {isTagalog ? "Paglalarawan:" : "Description:"}
               </h2>
-
-              <p className="text-base leading-relaxed text-[#555555] sm:text-lg">
+              <p className="text-base leading-relaxed text-[#555555]">
                 {description}
               </p>
             </div>
-
             <button
               type="button"
               onClick={handleReplay}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:w-auto sm:self-start sm:px-6"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 font-extrabold text-white sm:w-auto sm:px-6"
             >
-              <RotateCcw size={20} aria-hidden="true" />
+              <RotateCcw size={20} />
               {isTagalog ? "Panoorin ulit" : "Watch again"}
             </button>
           </div>
         </div>
 
-        {/* PREVIOUS / NEXT */}
+        {/* NAVIGATION BUTTONS */}
         <div className="mt-6 flex items-center justify-between gap-3">
           {currentIndex > 0 ? (
             <button
               type="button"
-              onClick={() => setCurrentIndex((prev) => prev - 1)}
-              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 text-lg font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-6"
+              onClick={async () => {
+                const prev = currentIndex - 1;
+                setCurrentIndex(prev);
+                await saveProgress(prev, partCompleted);
+              }}
+              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 font-extrabold text-white"
             >
-              <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
+              <ArrowLeft size={21} />
               {isTagalog ? "Nakaraan" : "Previous"}
             </button>
           ) : (
-            <span aria-hidden="true" />
+            <span />
           )}
 
           <button
             type="button"
             onClick={handleNext}
-            className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 text-lg font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:px-6"
+            className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 font-extrabold text-[#A45CE8]"
           >
-            {isLast
-              ? isTagalog ? "Tapusin" : "Finish"
-              : isTagalog ? "Susunod" : "Next"}
-            {isLast ? (
-              <Check size={21} strokeWidth={3} aria-hidden="true" />
-            ) : (
-              <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
-            )}
+            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast
+              ? "Quick Test"
+              : isTagalog
+                ? "Susunod"
+                : "Next"}
+            {currentIndex === CHECKPOINT_AFTER_INDEX || isLast ? <Check size={21} /> : <ArrowRight size={21} />}
           </button>
         </div>
       </section>

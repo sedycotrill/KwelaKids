@@ -46,8 +46,16 @@ import NumbersChampionshipHistory from "./pages/logged-in/numbers/numberchampion
 import NumbersChampionshipSummary from "./pages/logged-in/numbers/numberchampionshipsummary";
 import NumbersQuiz from "./pages/logged-in/numbers/numberquiz";
 
+// GREETINGS PAGES
 import GreetingsPage from "./pages/logged-in/greetings/greetings";
 import GreetingsTutorial from "./pages/logged-in/greetings/greetingstutorial";
+import GreetingsTutorial2 from "./pages/logged-in/greetings/greetingstutorial2";
+import GreetingPractical from "./pages/logged-in/greetings/greetingpractical";
+import GreetingQuiz from "./pages/logged-in/greetings/greetingquiz";
+import GreetingsComplete from "./pages/logged-in/greetings/greetingscomplete";
+import GreetingsChampionship from "./pages/logged-in/greetings/greetingschampionship";
+import GreetingsChampionshipSummary from "./pages/logged-in/greetings/greetingschampionshipsummary";
+import GreetingsChampionshipHistory from "./pages/logged-in/greetings/greetingschampionshiphistory";
 
 // =========================================================
 // DEFAULT ROUTE
@@ -204,13 +212,11 @@ function App() {
                                 element={<NumbersTutorial2 />}
                             />
 
-                            {/* Ang numberchampionship.tsx ay nagna-navigate sa /numbercomplete */}
                             <Route
                                 path="/numbercomplete"
                                 element={<NumbersComplete />}
                             />
 
-                            {/* Iniwan ang lumang path para hindi masira ang ibang link */}
                             <Route
                                 path="/numberscomplete"
                                 element={<NumbersComplete />}
@@ -245,6 +251,41 @@ function App() {
                             <Route
                                 path="/greetingstutorial"
                                 element={<GreetingsTutorial />}
+                            />
+
+                            <Route
+                                path="/greetingstutorial2"
+                                element={<GreetingsTutorial2 />}
+                            />
+
+                            <Route
+                                path="/greetingpractical"
+                                element={<GreetingPractical />}
+                            />
+
+                            <Route
+                                path="/greetingsquiz"
+                                element={<GreetingQuiz />}
+                            />
+
+                            <Route
+                                path="/greetingscomplete"
+                                element={<GreetingsComplete />}
+                            />
+
+                            <Route
+                                path="/greetingschampionship"
+                                element={<GreetingsChampionship />}
+                            />
+
+                            <Route
+                                path="/greetingschampionshipsummary"
+                                element={<GreetingsChampionshipSummary />}
+                            />
+
+                            <Route
+                                path="/greetingschampionshiphistory"
+                                element={<GreetingsChampionshipHistory />}
                             />
 
                         </Route>

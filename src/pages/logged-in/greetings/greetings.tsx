@@ -1,13 +1,18 @@
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Lock, Play, Volume2, VolumeX, Languages } from "lucide-react";
 import { useLanguage } from "../../../context/LanguageContext";
 import { useAudio } from "../../../context/AudioContext";
+import { useAuth } from "../../../context/AuthContext";
+import { supabase } from "../../../lib/supabase";
 
 import theoreticalImage from "../../../assets/theoretical.svg";
 import practicalImage from "../../../assets/practical.svg";
 import championshipImage from "../../../assets/championship.svg";
 import ropeImage from "../../../assets/rope.svg";
+
+// Palitan ito ng tamang ruta ng championship kapag nagawa na
+const CHAMPIONSHIP_ROUTE = "/greetingschampionship";
 
 // Shared "chunky 3D" button look
 const chunkyButton =
@@ -18,11 +23,19 @@ const chunkyButton =
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
   "motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
+interface TutorialProgress {
+  part_key: string;
+  tutorial_completed_at: string | null;
+}
+
 interface IslandProps {
   image: string;
   name: string;
   actionLabel: string;
   locked: boolean;
+  loading: boolean;
+  completed?: boolean;
+  completedLabel?: string;
   ariaLabel: string;
   onOpen: () => void;
   className?: string;
@@ -33,20 +46,25 @@ function Island({
   name,
   actionLabel,
   locked,
+  loading,
+  completed = false,
+  completedLabel = "Completed",
   ariaLabel,
   onOpen,
   className = "",
 }: IslandProps) {
+  const isDisabled = locked || loading;
+
   return (
     <button
       type="button"
       onClick={onOpen}
-      disabled={locked}
+      disabled={isDisabled}
       aria-label={ariaLabel}
       className={`
         group z-10 flex flex-col items-center rounded-3xl
         focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-purple-400
-        ${locked ? "cursor-not-allowed" : "cursor-pointer"}
+        ${isDisabled ? "cursor-not-allowed pointer-events-none opacity-60" : "cursor-pointer pointer-events-auto"}
         ${className}
       `}
     >
@@ -60,8 +78,8 @@ function Island({
             pointer-events-none h-full w-full scale-400 object-contain
             transition-all duration-300 ease-in-out motion-reduce:transition-none
             ${
-              locked
-                ? "opacity-60 grayscale"
+              isDisabled
+                ? "grayscale"
                 : `group-hover:-translate-y-2 group-hover:brightness-110
                    group-hover:drop-shadow-[0_0_18px_rgba(255,210,50,0.8)]
                    group-active:scale-380`
@@ -70,10 +88,17 @@ function Island({
         />
       </span>
 
-      {/* Name */}
+      {/* Island name */}
       <span className="mt-1 rounded-full bg-white/80 px-4 py-1 text-base font-black text-[#164B9B] shadow-xs sm:text-lg">
         {name}
       </span>
+
+      {/* Completed label */}
+      {completed && (
+        <span className="mt-1 rounded-full bg-green-100 px-3 py-1 text-xs font-extrabold text-green-700 shadow-sm">
+          {completedLabel}
+        </span>
+      )}
 
       {/* Action / status pill */}
       <span
@@ -81,13 +106,13 @@ function Island({
           mt-2 flex items-center gap-2 whitespace-nowrap rounded-full border-b-4 px-5 py-2
           text-base font-extrabold transition-all duration-150 motion-reduce:transition-none
           ${
-            locked
+            isDisabled
               ? "border-slate-300 bg-slate-100 text-slate-500"
               : "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8] group-hover:-translate-y-0.5 group-hover:bg-[#D8BCFF] group-active:translate-y-0.5 group-active:border-b-2"
           }
         `}
       >
-        {locked ? (
+        {isDisabled ? (
           <Lock size={18} aria-hidden="true" />
         ) : (
           <Play size={18} aria-hidden="true" className="fill-current" />
@@ -102,78 +127,177 @@ export default function GreetingsPage() {
   const navigate = useNavigate();
   const { language, toggleLanguage } = useLanguage();
   const { isPlaying, volume, toggleMusic } = useAudio();
+  const { user, loading: authLoading } = useAuth();
 
   const isTagalog = language === "tl";
   const isMusicActive = isPlaying && volume > 0;
 
-  // Read once, and don't crash if storage is blocked
-  const [isTutorialCompleted] = useState(() => {
-    try {
-      return (
-        localStorage.getItem("kwelakids_greetings_tutorial_completed") === "true"
-      );
-    } catch {
-      return false;
-    }
-  });
+  const [part1Progress, setPart1Progress] = useState<TutorialProgress | null>(null);
+  const [part2Progress, setPart2Progress] = useState<TutorialProgress | null>(null);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [progressError, setProgressError] = useState("");
+  const [reloadVersion, setReloadVersion] = useState(0);
 
-  const openTheoretical = () => {
-    navigate(isTutorialCompleted ? "/greetingsquiz" : "/greetingstutorial");
+  // Completion states
+  const isPart1Completed = Boolean(part1Progress?.tutorial_completed_at);
+  const isPart2Completed = Boolean(part2Progress?.tutorial_completed_at);
+  const isPart2Unlocked = isPart1Completed;
+  const isChampionshipUnlocked = isPart1Completed && isPart2Completed;
+
+  // Fetch progress from Supabase greetings_progress table for both parts
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchGreetingsProgress = async () => {
+      if (authLoading) return;
+
+      if (!user?.id) {
+        if (isMounted) {
+          setPart1Progress(null);
+          setPart2Progress(null);
+          setProgressError("");
+          setProgressLoading(false);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setProgressLoading(true);
+        setProgressError("");
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("greetings_progress")
+          .select("part_key, tutorial_completed_at")
+          .eq("user_id", user.id)
+          .in("part_key", ["part_1", "part_2"]);
+
+        if (error) throw error;
+        if (!isMounted) return;
+
+        const rows = (data ?? []) as TutorialProgress[];
+        setPart1Progress(rows.find((r) => r.part_key === "part_1") ?? null);
+        setPart2Progress(rows.find((r) => r.part_key === "part_2") ?? null);
+      } catch (error) {
+        console.error("Failed to fetch greetings progress:", error);
+        if (isMounted) {
+          setProgressError(
+            isTagalog
+              ? "Hindi makuha ang iyong progreso. Subukan muli."
+              : "Unable to load your progress. Please try again."
+          );
+          setPart1Progress(null);
+          setPart2Progress(null);
+        }
+      } finally {
+        if (isMounted) {
+          setProgressLoading(false);
+        }
+      }
+    };
+
+    void fetchGreetingsProgress();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, authLoading, reloadVersion, isTagalog]);
+
+  const getTutorialActionLabel = (progress: TutorialProgress | null) => {
+    if (progress?.tutorial_completed_at) {
+      return isTagalog ? "Rebyuhin" : "Review";
+    }
+    if (progress) {
+      return isTagalog ? "Magpatuloy" : "Continue";
+    }
+    return isTagalog ? "Simulan" : "Start";
   };
 
-  const comingSoon = isTagalog ? "Malapit na" : "Coming soon";
-  const playLabel = isTutorialCompleted
-    ? isTagalog ? "Maglaro" : "Play"
-    : isTagalog ? "Simulan ang Tutorial" : "Start Tutorial";
+  const loadingLabel = isTagalog ? "Naglo-load..." : "Loading...";
+  const lockedLabel = isTagalog ? "Naka-lock" : "Locked";
+  const completedLabel = isTagalog ? "Tapos na" : "Completed";
 
+  const part2ActionLabel = isPart2Unlocked
+    ? progressLoading
+      ? loadingLabel
+      : getTutorialActionLabel(part2Progress)
+    : lockedLabel;
+
+  const championshipActionLabel = isChampionshipUnlocked
+    ? isTagalog
+      ? "Maglaro"
+      : "Play"
+    : lockedLabel;
+
+  // Island definitions para sa Part 1, Part 2, at Championship
   const islands = [
     {
       id: 1,
       image: theoreticalImage,
-      name: isTagalog ? "Teorya" : "Theoretical",
+      name: isTagalog ? "Bahagi 1 (1–14)" : "Part 1 (1–14)",
       position: "left-[13%] top-[52%]",
       locked: false,
+      completed: isPart1Completed,
+      actionLabel: progressLoading ? loadingLabel : getTutorialActionLabel(part1Progress),
+      onOpen: () => {
+        navigate("/greetingstutorial");
+      },
     },
     {
       id: 2,
       image: practicalImage,
-      name: isTagalog ? "Praktis" : "Practical",
+      name: isTagalog ? "Bahagi 2 (15–27)" : "Part 2 (15–27)",
       position: "left-[44%] top-[39%]",
-      locked: true,
+      locked: !isPart2Unlocked,
+      completed: isPart2Completed,
+      actionLabel: part2ActionLabel,
+      onOpen: () => {
+        if (isPart2Unlocked) {
+          navigate("/greetingstutorial2");
+        }
+      },
     },
     {
       id: 3,
       image: championshipImage,
       name: isTagalog ? "Kampeonato" : "Championship",
       position: "right-[11%] top-[21%]",
-      locked: true,
+      locked: !isChampionshipUnlocked,
+      completed: false,
+      actionLabel: championshipActionLabel,
+      onOpen: () => {
+        if (isChampionshipUnlocked) {
+          navigate(CHAMPIONSHIP_ROUTE);
+        }
+      },
     },
   ];
 
-  const renderIsland = (
-    island: (typeof islands)[number],
-    className: string
-  ) => (
+  const renderIsland = (island: (typeof islands)[number], className: string) => (
     <Island
       image={island.image}
       name={island.name}
       locked={island.locked}
-      actionLabel={island.locked ? comingSoon : playLabel}
+      loading={progressLoading}
+      completed={island.completed}
+      completedLabel={completedLabel}
+      actionLabel={island.actionLabel}
       ariaLabel={
         island.locked
-          ? `${island.name}: ${comingSoon}`
+          ? `${island.name}: ${island.actionLabel}`
           : isTagalog
             ? `Buksan ang ${island.name}`
             : `Open ${island.name}`
       }
-      onOpen={openTheoretical}
+      onOpen={island.onOpen}
       className={className}
     />
   );
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      {/* SUB-HEADER: back button, category title, and quick controls */}
+      {/* SUB-HEADER */}
       <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
         <div className="flex items-center gap-3">
           <button
@@ -196,9 +320,8 @@ export default function GreetingsPage() {
           </div>
         </div>
 
-        {/* QUICK ACTIONS (Translation & Music/Mute) */}
+        {/* QUICK ACTIONS */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-          {/* LANGUAGE */}
           <button
             type="button"
             onClick={() => toggleLanguage()}
@@ -209,7 +332,6 @@ export default function GreetingsPage() {
             <span>{isTagalog ? "TL" : "EN"}</span>
           </button>
 
-          {/* MUSIC / MUTE */}
           <button
             type="button"
             onClick={() => toggleMusic()}
@@ -239,6 +361,25 @@ export default function GreetingsPage() {
         </div>
       </div>
 
+      {/* DATABASE ERROR MESSAGE */}
+      {progressError && (
+        <div
+          role="alert"
+          className="relative z-20 mx-auto mt-5 flex max-w-2xl flex-col items-center gap-3 rounded-2xl border border-rose-200 bg-white/95 p-4 text-center shadow-sm sm:flex-row sm:justify-between sm:text-left"
+        >
+          <p className="text-sm font-semibold text-rose-600">
+            {progressError}
+          </p>
+          <button
+            type="button"
+            onClick={() => setReloadVersion((previous) => previous + 1)}
+            className="shrink-0 rounded-full bg-rose-500 px-5 py-2 text-sm font-bold text-white transition hover:bg-rose-600"
+          >
+            {isTagalog ? "Subukan muli" : "Retry"}
+          </button>
+        </div>
+      )}
+
       {/* Clouds */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
@@ -249,7 +390,7 @@ export default function GreetingsPage() {
       <div className="pointer-events-none absolute -bottom-24 left-[15%] h-40 w-72 rounded-full bg-[#D8EEFC]/80" />
       <div className="pointer-events-none absolute -bottom-24 right-[10%] h-44 w-80 rounded-full bg-[#D8EEFC]/80" />
 
-      {/* ===== PHONES AND TABLETS: islands stacked in a zigzag path ===== */}
+      {/* PHONES AND TABLETS */}
       <div className="relative z-10 mx-auto flex max-w-md flex-col items-center px-6 pb-24 pt-8 lg:hidden">
         {islands.map((island, index) => (
           <Fragment key={island.id}>
@@ -264,24 +405,20 @@ export default function GreetingsPage() {
         ))}
       </div>
 
-      {/* ===== DESKTOP: the original map with ropes ===== */}
+      {/* DESKTOP */}
       <div className="absolute inset-0 hidden lg:block">
-        {/* Rope 1: Theoretical to Practical */}
         <img
           src={ropeImage}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute left-[15%] top-[39%] z-0 h-[40%] w-[35%] object-fill"
         />
-
-        {/* Rope 2: Practical to Championship */}
         <img
           src={ropeImage}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute left-[52%] top-[27%] z-0 h-[40%] w-[29%] object-fill"
         />
-
         {islands.map((island) => (
           <Fragment key={island.id}>
             {renderIsland(island, `absolute ${island.position}`)}
