@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useLayoutEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Trophy,
@@ -26,8 +26,13 @@ type ChampionshipHistoryRecord = {
   started_at: string;
 };
 
+type LocationState = {
+  attemptId?: string;
+} | null;
+
 const PASSING_PERCENTAGE = 75;
-const TOTAL_QUESTIONS = 26;
+const TOTAL_QUESTIONS = 20;
+const COMPLETE_PAGE_PATH = "/numbercomplete"; // Palitan kung iba ang route path ng NumbersComplete sa router mo
 
 const PAGE_DESIGN_WIDTH = 1366;
 const MOBILE_MAX_WIDTH = 1023;
@@ -82,7 +87,7 @@ function useFitWidth(designWidth: number, enabled: boolean) {
 
   const [fit, setFit] = useState({ scale: 1, height: 0 });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled || !outer || !inner) return;
 
     const update = () => {
@@ -113,8 +118,10 @@ function useFitWidth(designWidth: number, enabled: boolean) {
   return { outerRef: setOuter, innerRef: setInner, fit };
 }
 
-export default function AlphabetChampionshipHistory() {
+export default function NumbersChampionshipHistory() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState;
 
   const { language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
@@ -155,7 +162,7 @@ export default function AlphabetChampionshipHistory() {
 
       try {
         const { data, error: fetchError } = await supabase
-          .from("alphabet_assessment_attempts")
+          .from("numbers_assessment_attempts")
           .select(
             "id, score, total_questions, completed_at, started_at"
           )
@@ -195,7 +202,7 @@ export default function AlphabetChampionshipHistory() {
           }))
         );
       } catch (err) {
-        console.error("Error loading Championship history:", err);
+        console.error("Error loading Numbers Championship history:", err);
 
         if (!cancelled) {
           setError(
@@ -255,19 +262,27 @@ export default function AlphabetChampionshipHistory() {
 
   const handleViewSummary = (attemptId: string) => {
     navigate(
-      `/championshipsummary?attempt=${encodeURIComponent(attemptId)}`
+      `/numberchampionshipsummary?attempt=${encodeURIComponent(attemptId)}`
     );
   };
 
   const handleBack = () => {
-    navigate("/categories");
+    const targetAttemptId = state?.attemptId || records[0]?.id;
+
+    if (targetAttemptId) {
+      navigate(
+        `${COMPLETE_PAGE_PATH}?attempt=${encodeURIComponent(targetAttemptId)}`
+      );
+      return;
+    }
+
+    navigate(COMPLETE_PAGE_PATH);
   };
 
   const handleChampionship = () => {
-    navigate("/championship");
+    navigate("/numberchampionship");
   };
 
-  // Loading state
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
@@ -276,13 +291,12 @@ export default function AlphabetChampionshipHistory() {
         <p className="text-[#164B9B] font-black">
           {isTagalog
             ? "Kinukuha ang iyong mga nakaraang record..."
-            : "Loading your Championship history..."}
+            : "Loading your Numbers Championship history..."}
         </p>
       </div>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-6">
@@ -306,18 +320,19 @@ export default function AlphabetChampionshipHistory() {
             onClick={handleBack}
             className="w-full rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-3.5 font-extrabold text-white transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
-            {isTagalog
-              ? "Bumalik sa Categories"
-              : "Back to Categories"}
+            {isTagalog ? "Bumalik" : "Back"}
           </button>
         </div>
       </div>
     );
   }
 
-  const renderContent = (_isDesktop: boolean) => (
-    <div className="mx-auto max-w-4xl">
+  // --------------------------------------------------
+  // RENDER CONTENT FUNCTION (ZOOM-PROOF)
+  // --------------------------------------------------
 
+  const renderContent = (_isDesktop: boolean) => (
+    <div className="relative z-10 mx-auto max-w-4xl">
       {/* Back button */}
       <button
         type="button"
@@ -325,16 +340,11 @@ export default function AlphabetChampionshipHistory() {
         className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
       >
         <ArrowLeft size={20} strokeWidth={2.5} />
-        <span>
-          {isTagalog
-            ? "Bumalik sa Categories"
-            : "Back to Categories"}
-        </span>
+        <span>{isTagalog ? "Bumalik" : "Back"}</span>
       </button>
 
       {/* Page header */}
       <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
-
         <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-6 py-9 text-center text-white sm:px-10">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
             <History size={34} />
@@ -342,20 +352,19 @@ export default function AlphabetChampionshipHistory() {
 
           <h1 className="text-3xl font-black sm:text-4xl">
             {isTagalog
-              ? "Mga Nakaraang Championship"
-              : "Championship History"}
+              ? "Mga Nakaraang Numbers Championship"
+              : "Numbers Championship History"}
           </h1>
 
           <p className="mt-2 text-sm text-sky-100 font-medium sm:text-base">
             {isTagalog
-              ? "Tingnan ang iyong mga nakaraang marka at resulta."
-              : "Review your previous scores and Championship results."}
+              ? "Tingnan ang iyong mga nakaraang marka at resulta sa numero."
+              : "Review your previous scores and Numbers Championship results."}
           </p>
         </div>
 
         {/* History statistics */}
         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
-
           <div className="rounded-2xl bg-sky-50 border border-sky-100 p-5 text-center">
             <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100">
               <BookOpen className="h-5 w-5 text-[#36A9F4]" />
@@ -403,13 +412,11 @@ export default function AlphabetChampionshipHistory() {
               {records.filter((record) => !hasPassed(record)).length}
             </p>
           </div>
-
         </div>
       </div>
 
       {/* History list */}
       <section>
-
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-black text-[#164B9B]">
@@ -444,8 +451,8 @@ export default function AlphabetChampionshipHistory() {
 
             <p className="mx-auto mt-2 max-w-md text-slate-600 font-medium">
               {isTagalog
-                ? "Wala ka pang natapos na Championship attempt. Kumpletuhin ang iyong unang Championship upang makita rito ang iyong resulta."
-                : "You have not completed a Championship attempt yet. Finish your first Championship to see your results here."}
+                ? "Wala ka pang natapos na Numbers Championship attempt. Kumpletuhin ang iyong unang Championship upang makita rito ang iyong resulta."
+                : "You have not completed a Numbers Championship attempt yet. Finish your first Championship to see your results here."}
             </p>
 
             <button
@@ -472,10 +479,8 @@ export default function AlphabetChampionshipHistory() {
                   className="overflow-hidden rounded-3xl border border-[#B8DDF6] bg-white shadow-sm transition hover:shadow-md"
                 >
                   <div className="p-5 sm:p-6">
-
                     {/* Attempt header */}
                     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
                       <div className="flex items-center gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E5D3FF] text-[#A45CE8]">
                           <Medal className="h-6 w-6" />
@@ -519,12 +524,10 @@ export default function AlphabetChampionshipHistory() {
                             ? "HINDI NAIPASA"
                             : "NOT PASSED"}
                       </span>
-
                     </div>
 
                     {/* Score and percentage */}
                     <div className="grid grid-cols-2 gap-3 mb-5">
-
                       <div className="rounded-2xl bg-sky-50 border border-sky-100 p-4">
                         <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
                           {isTagalog
@@ -551,7 +554,6 @@ export default function AlphabetChampionshipHistory() {
                           {percentage}%
                         </p>
                       </div>
-
                     </div>
 
                     {/* Score progress */}
@@ -599,7 +601,6 @@ export default function AlphabetChampionshipHistory() {
                         ? "Tingnan ang Buod"
                         : "View Summary"}
                     </button>
-
                   </div>
                 </article>
               );
@@ -610,7 +611,6 @@ export default function AlphabetChampionshipHistory() {
 
       {/* Bottom navigation */}
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-
         <button
           type="button"
           onClick={handleBack}
@@ -618,9 +618,7 @@ export default function AlphabetChampionshipHistory() {
         >
           <ArrowLeft size={20} strokeWidth={2.5} />
 
-          {isTagalog
-            ? "Bumalik sa Categories"
-            : "Back to Categories"}
+          {isTagalog ? "Bumalik" : "Back"}
         </button>
 
         <button
@@ -634,20 +632,18 @@ export default function AlphabetChampionshipHistory() {
             ? "Pumunta sa Championship"
             : "Go to Championship"}
         </button>
-
       </div>
     </div>
   );
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      
+    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-4 py-8 sm:px-6">
       {/* Background decorative elements */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
 
       {isMobileView ? (
-        <div className="relative z-10 px-4 py-8 sm:px-6">
+        <div className="relative z-10 pb-24">
           {renderContent(false)}
         </div>
       ) : (
@@ -664,7 +660,7 @@ export default function AlphabetChampionshipHistory() {
               transformOrigin: "top left",
             }}
           >
-            <div className="px-8 py-8">
+            <div className="pb-24">
               {renderContent(true)}
             </div>
           </div>

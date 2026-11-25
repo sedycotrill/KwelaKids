@@ -123,28 +123,10 @@ const VIDEO_END_BUFFER = 0.05;
 const PAGE_DESIGN_WIDTH = 1366;
 const MOBILE_MAX_WIDTH = 1023;
 
-function isMobileDevice() {
-  if (typeof navigator === "undefined") return false;
-
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
-  ).userAgentData;
-
-  if (uaData?.mobile) return true;
-
-  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
-    return true;
-  }
-
-  return (
-    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
-  );
-}
-
 function detectMobileView() {
   if (typeof window === "undefined") return false;
 
-  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+  return window.innerWidth <= MOBILE_MAX_WIDTH;
 }
 
 function useIsMobileView() {
@@ -1141,46 +1123,46 @@ export default function GreetingsChampionship() {
   --------------------------------------------------------- */
 
   const renderContent = () => (
-    <div className="relative z-10 mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="relative z-10 mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
 
       {/* HEADER */}
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex items-center justify-between gap-2 sm:gap-4 mb-5 sm:mb-6">
         <button
           type="button"
           onClick={() => navigate("/greetings")}
           aria-label={text.back}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
+          className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300"
         >
-          <ArrowLeft size={22} strokeWidth={2.5} />
+          <ArrowLeft size={21} strokeWidth={2.5} />
         </button>
 
-        <div className="flex items-center gap-2 rounded-full bg-[#E5D3FF] border-b-4 border-[#B98AFF] px-4 py-2 text-[#A45CE8] shadow-sm">
-          <Award size={20} />
-          <span className="font-black tracking-wide text-sm sm:text-base">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2 rounded-full bg-[#E5D3FF] border-b-4 border-[#B98AFF] px-3.5 sm:px-4 py-1.5 sm:py-2 text-[#A45CE8] shadow-sm">
+          <Award size={18} className="sm:h-5 sm:w-5 shrink-0" />
+          <span className="truncate font-black tracking-wide text-xs sm:text-base">
             {text.title}
           </span>
         </div>
       </div>
 
       {/* TITLE AND DESCRIPTION */}
-      <div className="text-center mb-7">
-        <h1 className="text-3xl sm:text-4xl font-black text-[#164B9B] tracking-wide">
+      <div className="text-center mb-5 sm:mb-7">
+        <h1 className="text-2xl sm:text-4xl font-black text-[#164B9B] tracking-wide">
           {text.title}
         </h1>
 
-        <p className="mt-2 text-sm sm:text-base font-medium text-slate-600 max-w-2xl mx-auto">
+        <p className="mt-1.5 sm:mt-2 text-xs sm:text-base font-medium text-slate-600 max-w-2xl mx-auto">
           {text.subtitle}
         </p>
       </div>
 
       {/* PROGRESS */}
-      <div className="rounded-3xl bg-white p-4 sm:p-6 shadow-sm border border-[#B8DDF6] mb-6">
+      <div className="rounded-3xl bg-white p-4 sm:p-6 shadow-sm border border-[#B8DDF6] mb-5 sm:mb-6">
         <div className="flex items-center justify-between gap-3 mb-3">
-          <span className="font-black text-[#164B9B] text-sm sm:text-base">
+          <span className="font-black text-[#164B9B] text-xs sm:text-base">
             {text.questionCount}
           </span>
 
-          <span className="text-sm font-black text-[#36A9F4]">
+          <span className="text-xs sm:text-sm font-black text-[#36A9F4]">
             {answers.length}/{TOTAL_QUESTIONS}
           </span>
         </div>
@@ -1194,7 +1176,7 @@ export default function GreetingsChampionship() {
           />
         </div>
 
-        <div className="mt-3 flex items-center justify-between text-xs sm:text-sm font-medium text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm font-medium text-slate-500">
           <span>
             {isTagalog
               ? "Tamang sagot"
@@ -1210,18 +1192,18 @@ export default function GreetingsChampionship() {
       </div>
 
       {/* QUESTION CARD */}
-      <div className="rounded-3xl bg-white p-5 sm:p-8 shadow-sm border border-[#B8DDF6]">
+      <div className="rounded-3xl bg-white p-4 sm:p-8 shadow-sm border border-[#B8DDF6]">
 
-        <div className="text-center mb-6">
-          <span className="inline-block rounded-full bg-sky-100 px-4 py-1.5 text-xs sm:text-sm font-black tracking-wider text-[#164B9B]">
+        <div className="text-center mb-5 sm:mb-6">
+          <span className="inline-block rounded-full bg-sky-100 px-3.5 sm:px-4 py-1 sm:py-1.5 text-[11px] sm:text-sm font-black tracking-wider text-[#164B9B]">
             CHAMPIONSHIP TEST
           </span>
 
-          <h2 className="mt-3 text-xl sm:text-2xl font-black text-[#454545]">
+          <h2 className="mt-2.5 sm:mt-3 text-lg sm:text-2xl font-black text-[#454545]">
             {text.question}
           </h2>
 
-          <p className="mt-1.5 text-sm font-medium text-slate-500">
+          <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm font-medium text-slate-500">
             {text.instruction}
           </p>
         </div>
@@ -1245,20 +1227,20 @@ export default function GreetingsChampionship() {
             type="button"
             onClick={handleWatchAgain}
             disabled={saving}
-            className="flex h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 px-6 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 disabled:opacity-50"
+            className="flex h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 px-6 text-sm sm:text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 disabled:opacity-50"
           >
-            <RotateCcw size={20} aria-hidden="true" />
+            <RotateCcw size={19} aria-hidden="true" />
             {text.watchAgain}
           </button>
         </div>
 
         {/* ANSWER OPTIONS */}
-        <div className="mt-8">
-          <p className="text-center text-sm font-extrabold text-[#164B9B] mb-4">
+        <div className="mt-6 sm:mt-8">
+          <p className="text-center text-xs sm:text-sm font-extrabold text-[#164B9B] mb-3 sm:mb-4">
             {text.chooseAnswer}
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {currentQuestion.options.map((option) => {
               const isSelected =
                 selectedAnswer === option;
@@ -1292,7 +1274,7 @@ export default function GreetingsChampionship() {
                   type="button"
                   onClick={() => void handleAnswer(option)}
                   disabled={showFeedback || saving}
-                  className={`flex h-16 sm:h-20 items-center justify-center px-4 rounded-2xl border-b-4 text-base sm:text-lg font-black transition-all ${optionClass} disabled:cursor-not-allowed`}
+                  className={`flex min-h-14 sm:min-h-20 items-center justify-center px-4 py-3 rounded-2xl border-b-4 text-center text-sm sm:text-lg font-black leading-snug transition-all ${optionClass} disabled:cursor-not-allowed`}
                 >
                   {option}
                 </button>
@@ -1304,7 +1286,7 @@ export default function GreetingsChampionship() {
         {/* FEEDBACK */}
         {showFeedback && (
           <div
-            className={`mt-6 rounded-2xl border p-4 sm:p-5 ${
+            className={`mt-5 sm:mt-6 rounded-2xl border p-4 sm:p-5 ${
               selectedAnswer === currentQuestion.answer
                 ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                 : "border-rose-200 bg-rose-50 text-rose-800"
@@ -1312,22 +1294,22 @@ export default function GreetingsChampionship() {
           >
             <div className="flex items-center gap-3">
               {selectedAnswer === currentQuestion.answer ? (
-                <CheckCircle className="h-8 w-8 shrink-0 text-emerald-600" />
+                <CheckCircle className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-emerald-600" />
               ) : (
-                <XCircle className="h-8 w-8 shrink-0 text-rose-500" />
+                <XCircle className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-rose-500" />
               )}
 
               <div>
-                <h3 className="font-black text-lg">
+                <h3 className="font-black text-base sm:text-lg">
                   {selectedAnswer === currentQuestion.answer
                     ? text.correct
                     : text.incorrect}
                 </h3>
 
                 {selectedAnswer !== currentQuestion.answer && (
-                  <p className="mt-1 text-sm font-bold">
+                  <p className="mt-1 text-xs sm:text-sm font-bold">
                     {text.correctAnswer}{" "}
-                    <strong className="text-base">
+                    <strong className="text-sm sm:text-base">
                       {currentQuestion.answer}
                     </strong>
                   </p>
@@ -1356,25 +1338,25 @@ export default function GreetingsChampionship() {
 
         {/* NEXT / FINISH */}
         {showFeedback && (
-          <div className="mt-6 flex justify-center">
+          <div className="mt-5 sm:mt-6 flex justify-center">
             <button
               type="button"
               onClick={() => void handleNext()}
               disabled={saving}
-              className="flex h-14 w-full sm:w-auto min-w-50 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] text-lg font-black text-[#A45CE8] transition-all hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 disabled:opacity-50"
+              className="flex h-13 sm:h-14 w-full sm:w-auto min-w-50 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] text-base sm:text-lg font-black text-[#A45CE8] transition-all hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 disabled:opacity-50"
             >
               {answers.length === TOTAL_QUESTIONS
                 ? text.finish
                 : text.next}
 
-              <ArrowRight size={21} strokeWidth={3} />
+              <ArrowRight size={20} strokeWidth={3} />
             </button>
           </div>
         )}
       </div>
 
       {/* FOOTER */}
-      <div className="mt-6 text-center text-xs sm:text-sm font-medium text-slate-500">
+      <div className="mt-5 sm:mt-6 text-center text-xs sm:text-sm font-medium text-slate-500">
         {answers.length > 0 && !saving && !error
           ? text.progressSaved
           : "\u00A0"}
@@ -1387,14 +1369,14 @@ export default function GreetingsChampionship() {
   --------------------------------------------------------- */
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+    <main className="relative min-h-screen w-full overflow-x-clip bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
       
       {/* Background decorative elements */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
 
       {isMobileView ? (
-        <div className="relative z-10 w-full pb-24">
+        <div className="relative z-10 w-full pb-20">
           {renderContent()}
         </div>
       ) : (

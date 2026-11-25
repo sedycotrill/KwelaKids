@@ -55,28 +55,10 @@ const PASSING_PERCENTAGE = 75;
 const PAGE_DESIGN_WIDTH = 1366;
 const MOBILE_MAX_WIDTH = 1023;
 
-function isMobileDevice() {
-  if (typeof navigator === "undefined") return false;
-
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
-  ).userAgentData;
-
-  if (uaData?.mobile) return true;
-
-  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
-    return true;
-  }
-
-  return (
-    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
-  );
-}
-
 function detectMobileView() {
   if (typeof window === "undefined") return false;
 
-  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+  return window.innerWidth <= MOBILE_MAX_WIDTH;
 }
 
 function useIsMobileView() {
@@ -446,7 +428,7 @@ export default function AlphabetChampionshipSummary() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
         <Loader2 className="w-12 h-12 text-[#36A9F4] animate-spin mb-4" />
 
-        <p className="text-[#164B9B] font-black">
+        <p className="text-[#164B9B] font-black text-center">
           {isTagalog
             ? "Inihahanda ang iyong resulta..."
             : "Loading your championship summary..."}
@@ -458,19 +440,19 @@ export default function AlphabetChampionshipSummary() {
   // Error screen
   if (error || !attempt) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-6">
-        <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl border border-[#B8DDF6] p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-5 sm:p-6">
+        <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl border border-[#B8DDF6] p-6 sm:p-8 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100">
             <AlertCircle className="h-8 w-8 text-rose-600" />
           </div>
 
-          <h1 className="text-2xl font-black text-[#164B9B] mb-3">
+          <h1 className="text-xl sm:text-2xl font-black text-[#164B9B] mb-3">
             {isTagalog
               ? "Hindi Makita ang Resulta"
               : "Result Unavailable"}
           </h1>
 
-          <p className="text-slate-600 font-medium leading-relaxed mb-7">
+          <p className="text-sm sm:text-base text-slate-600 font-medium leading-relaxed mb-7">
             {error ||
               (isTagalog
                 ? "Hindi makita ang iyong resulta."
@@ -491,39 +473,39 @@ export default function AlphabetChampionshipSummary() {
     );
   }
 
-  const renderContent = (_isDesktop: boolean) => (
-    <div className="mx-auto max-w-4xl">
+  const renderContent = (isDesktop: boolean) => (
+    <div className="mx-auto w-full max-w-4xl">
 
       {/* Back to result */}
       <button
         type="button"
         onClick={handleBack}
-        className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+        className={`mb-5 sm:mb-6 inline-flex h-11 sm:h-12 items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 ${isDesktop ? "text-base" : "text-sm sm:text-base"} font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2`}
       >
-        <ArrowLeft size={20} strokeWidth={2.5} />
+        <ArrowLeft size={19} strokeWidth={2.5} />
 
         <span>
           {isTagalog
-            ? "Bumalik sa Resulta"
-            : "Back to Results"}
+            ? "Bumalik"
+            : "Back"}
         </span>
       </button>
 
       {/* Summary header and score */}
-      <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
+      <div className="mb-7 sm:mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
 
-        <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-6 py-8 text-center text-white sm:px-10">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
-            <BookOpen size={34} />
+        <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-5 py-7 sm:px-10 sm:py-9 text-center text-white">
+          <div className="mx-auto mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-white/20">
+            <BookOpen size={30} />
           </div>
 
-          <h1 className="text-3xl font-black sm:text-4xl">
+          <h1 className={`${isDesktop ? "text-4xl" : "text-2xl sm:text-4xl"} font-black tracking-tight`}>
             {isTagalog
               ? "Buod ng Championship"
               : "Championship Summary"}
           </h1>
 
-          <p className="mt-2 text-sm text-sky-100 font-medium sm:text-base">
+          <p className={`mt-2 ${isDesktop ? "text-base" : "text-xs sm:text-base"} text-sky-100 font-medium max-w-xl mx-auto`}>
             {isTagalog
               ? "Suriin ang mga sagot na kailangan mo pang pag-aralan."
               : "Review the answers you need to study further."}
@@ -531,40 +513,40 @@ export default function AlphabetChampionshipSummary() {
         </div>
 
         {/* Score cards */}
-        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
+        <div className="grid grid-cols-3 gap-2.5 p-3.5 sm:gap-4 sm:p-8">
 
-          <div className="rounded-2xl bg-sky-50 border border-sky-100 p-5 text-center">
-            <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
+          <div className="min-w-0 rounded-2xl bg-sky-50 border border-sky-100 p-3 sm:p-5 text-center">
+            <p className="text-[10px] sm:text-xs font-black text-[#164B9B] uppercase tracking-wide leading-tight">
               {isTagalog
                 ? "Kabuuang Tanong"
                 : "Total Questions"}
             </p>
 
-            <p className="mt-2 text-3xl font-black text-[#164B9B]">
+            <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-black text-[#164B9B]">
               {attempt.total_questions}
             </p>
           </div>
 
-          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-5 text-center">
-            <p className="text-xs font-black text-emerald-700 uppercase tracking-wide">
+          <div className="min-w-0 rounded-2xl bg-emerald-50 border border-emerald-100 p-3 sm:p-5 text-center">
+            <p className="text-[10px] sm:text-xs font-black text-emerald-700 uppercase tracking-wide leading-tight">
               {isTagalog
                 ? "Tamang Sagot"
                 : "Correct Answers"}
             </p>
 
-            <p className="mt-2 text-3xl font-black text-emerald-700">
+            <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-black text-emerald-700">
               {correctCount}
             </p>
           </div>
 
-          <div className="rounded-2xl bg-rose-50 border border-rose-100 p-5 text-center">
-            <p className="text-xs font-black text-rose-700 uppercase tracking-wide">
+          <div className="min-w-0 rounded-2xl bg-rose-50 border border-rose-100 p-3 sm:p-5 text-center">
+            <p className="text-[10px] sm:text-xs font-black text-rose-700 uppercase tracking-wide leading-tight">
               {isTagalog
                 ? "Maling Sagot"
                 : "Incorrect Answers"}
             </p>
 
-            <p className="mt-2 text-3xl font-black text-rose-700">
+            <p className="mt-1 sm:mt-2 text-xl sm:text-3xl font-black text-rose-700">
               {incorrectAnswers.length}
             </p>
           </div>
@@ -572,9 +554,9 @@ export default function AlphabetChampionshipSummary() {
         </div>
 
         {/* Percentage and progress */}
-        <div className="px-6 pb-7 sm:px-8">
+        <div className="px-4 pb-6 sm:px-8 sm:pb-7">
 
-          <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-slate-500">
+          <div className="mb-2 flex items-center justify-between gap-2 text-xs font-extrabold text-slate-500">
             <span>
               {isTagalog ? "Iyong Iskor" : "Your Score"}
             </span>
@@ -584,7 +566,7 @@ export default function AlphabetChampionshipSummary() {
             </span>
           </div>
 
-          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-3.5 overflow-hidden rounded-full bg-slate-100">
             <div
               className={`h-full rounded-full transition-all ${
                 passed
@@ -606,9 +588,9 @@ export default function AlphabetChampionshipSummary() {
               }`}
             >
               {passed ? (
-                <Trophy size={16} />
+                <Trophy size={15} />
               ) : (
-                <RotateCcw size={16} />
+                <RotateCcw size={15} />
               )}
 
               {passed
@@ -620,7 +602,7 @@ export default function AlphabetChampionshipSummary() {
                   : "NOT PASSED"}
             </span>
 
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-xs font-medium text-slate-500 text-center sm:text-right">
               {isTagalog
                 ? "Pamantayan sa pagpasa: 75%"
                 : "Passing requirement: 75%"}
@@ -631,18 +613,18 @@ export default function AlphabetChampionshipSummary() {
 
       {/* Incorrect answers */}
       {incorrectAnswers.length === 0 ? (
-        <div className="rounded-3xl border border-[#B8DDF6] bg-white p-8 text-center shadow-sm sm:p-12">
-          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-100">
-            <Trophy className="h-10 w-10 text-emerald-600" />
+        <div className="rounded-3xl border border-[#B8DDF6] bg-white p-6 text-center shadow-sm sm:p-12">
+          <div className="mx-auto mb-5 flex h-18 w-18 sm:h-20 sm:w-20 items-center justify-center rounded-3xl bg-emerald-100">
+            <Trophy className="h-9 w-9 sm:h-10 sm:w-10 text-emerald-600" />
           </div>
 
-          <h2 className="text-2xl font-black text-[#164B9B]">
+          <h2 className="text-xl sm:text-2xl font-black text-[#164B9B]">
             {isTagalog
               ? "Perpektong Iskor!"
               : "Perfect Score!"}
           </h2>
 
-          <p className="mx-auto mt-2 max-w-md text-slate-600 font-medium">
+          <p className="mx-auto mt-2 max-w-md text-xs sm:text-base text-slate-600 font-medium">
             {isTagalog
               ? "Tama ang lahat ng iyong sagot. Mahusay ang iyong ginawa sa Championship!"
               : "You answered every question correctly. Excellent work in the Championship!"}
@@ -651,19 +633,19 @@ export default function AlphabetChampionshipSummary() {
       ) : (
         <section>
 
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+          <div className="mb-4 sm:mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
               <XCircle className="h-6 w-6" />
             </div>
 
-            <div>
-              <h2 className="text-xl font-black text-[#164B9B]">
+            <div className="min-w-0">
+              <h2 className={`${isDesktop ? "text-xl" : "text-lg sm:text-xl"} font-black text-[#164B9B]`}>
                 {isTagalog
                   ? "Mga Sagot na Mali"
                   : "Incorrect Answers"}
               </h2>
 
-              <p className="text-sm font-medium text-slate-600">
+              <p className="text-xs sm:text-sm font-medium text-slate-600">
                 {isTagalog
                   ? "Ito ang mga titik na kailangan mong balikan."
                   : "These are the letters you should review."}
@@ -679,30 +661,30 @@ export default function AlphabetChampionshipSummary() {
               >
 
                 {/* Question number */}
-                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-4">
-                  <span className="font-extrabold text-slate-700 text-sm">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3.5 sm:px-5 sm:py-4">
+                  <span className="font-extrabold text-slate-700 text-xs sm:text-sm">
                     {isTagalog ? "Tanong" : "Question"}{" "}
                     {item.questionNumber}
                   </span>
 
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-black text-rose-700">
                     <XCircle size={14} />
 
                     {isTagalog ? "Mali" : "Incorrect"}
                   </span>
                 </div>
 
-                <div className="p-5 sm:p-6">
+                <div className="p-4 sm:p-6">
 
                   {/* Question text */}
-                  <p className="mb-5 font-bold leading-relaxed text-[#454545]">
+                  <p className="mb-4 sm:mb-5 text-sm sm:text-base font-bold leading-relaxed text-[#454545] wrap-break-word">
                     {isTagalog
                       ? item.question.question_tl
                       : item.question.question_en}
                   </p>
 
                   {/* Letter */}
-                  <div className="mb-5 flex justify-center">
+                  <div className="mb-4 sm:mb-5 flex justify-center">
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50 border border-sky-100 text-3xl font-black text-[#164B9B]">
                       {item.question.letter}
                     </div>
@@ -712,9 +694,9 @@ export default function AlphabetChampionshipSummary() {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
                     {/* User's answer */}
-                    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                    <div className="min-w-0 rounded-2xl border border-rose-200 bg-rose-50 p-4">
                       <div className="mb-1 flex items-center gap-2 text-xs font-black text-rose-700 uppercase tracking-wide">
-                        <XCircle size={16} />
+                        <XCircle size={16} className="shrink-0" />
 
                         {isTagalog
                           ? "Iyong Sagot"
@@ -727,9 +709,9 @@ export default function AlphabetChampionshipSummary() {
                     </div>
 
                     {/* Correct answer */}
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                       <div className="mb-1 flex items-center gap-2 text-xs font-black text-emerald-700 uppercase tracking-wide">
-                        <CheckCircle2 size={16} />
+                        <CheckCircle2 size={16} className="shrink-0" />
 
                         {isTagalog
                           ? "Tamang Sagot"
@@ -751,26 +733,26 @@ export default function AlphabetChampionshipSummary() {
       )}
 
       {/* Bottom navigation */}
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-7 sm:mt-8 flex flex-col gap-3 sm:flex-row">
 
         <button
           type="button"
           onClick={handleBack}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-6 py-4 font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+          className="flex h-12 sm:h-13 flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-5 text-sm sm:text-base font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
         >
-          <ArrowLeft size={20} strokeWidth={2.5} />
+          <ArrowLeft size={19} strokeWidth={2.5} />
 
           {isTagalog
-            ? "Bumalik sa Resulta"
-            : "Back to Results"}
+            ? "Bumalik"
+            : "Back"}
         </button>
 
         <button
           type="button"
           onClick={handleTryAgain}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-4 font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+          className="flex h-12 sm:h-13 flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-5 text-sm sm:text-base font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
         >
-          <RotateCcw size={20} strokeWidth={2.5} />
+          <RotateCcw size={19} strokeWidth={2.5} />
 
           {isTagalog
             ? "Subukan Muli"
@@ -780,9 +762,9 @@ export default function AlphabetChampionshipSummary() {
         <button
           type="button"
           onClick={handleExit}
-          className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 px-6 py-4 font-black text-slate-700 transition hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
+          className="flex h-12 sm:h-13 flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 px-5 text-sm sm:text-base font-black text-slate-700 transition hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
         >
-          <LogOut size={20} strokeWidth={2.5} />
+          <LogOut size={19} strokeWidth={2.5} />
 
           {isTagalog
             ? "Lumabas"
@@ -794,14 +776,14 @@ export default function AlphabetChampionshipSummary() {
   );
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
-      
+    <main className="relative min-h-screen w-full overflow-x-clip bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+
       {/* Background decorative elements */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
 
       {isMobileView ? (
-        <div className="relative z-10 px-4 py-8 sm:px-6">
+        <div className="relative z-10 px-4 py-6 sm:px-6 sm:py-8">
           {renderContent(false)}
         </div>
       ) : (

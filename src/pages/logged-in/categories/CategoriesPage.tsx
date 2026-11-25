@@ -44,24 +44,24 @@ export default function CategoriesPage() {
 
   return (
     <MainLayout>
-      <section className="relative isolate mx-auto w-full max-w-6xl space-y-6 overflow-hidden px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+      <section className="relative isolate mx-auto w-full max-w-6xl space-y-5 overflow-x-clip px-4 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         {/* Background Image */}
         <img
           src={bgImage}
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 left-0 z-0 h-auto w-full translate-y-10 object-contain object-bottom"
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-auto w-full object-contain object-bottom opacity-85 sm:absolute sm:opacity-100"
         />
 
         {/* GREETING */}
-        <div className="relative z-10 rounded-3xl bg-[#6254F5] p-6 text-white shadow-md sm:p-8">
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-between">
-            <div className="min-w-0 text-center sm:text-left">
-              <h1 className="font-fredoka text-3xl font-bold leading-tight sm:text-4xl">
+        <div className="relative z-10 rounded-2xl bg-[#6254F5] p-5 text-white shadow-md sm:rounded-3xl sm:p-8">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between sm:gap-6">
+            <div className="min-w-0 w-full text-center sm:text-left">
+              <h1 className="font-fredoka text-2xl font-bold leading-tight sm:text-4xl">
                 {isTagalog ? `Kamusta, ${firstName}!` : `Hi, ${firstName}!`}
               </h1>
 
-              <p className="mt-1 text-lg text-white/90 sm:text-xl">
+              <p className="mt-1 text-base text-white/90 sm:text-xl">
                 {isTagalog
                   ? "Ano'ng gusto mong matutunan ngayon?"
                   : "What do you want to learn today?"}
@@ -72,10 +72,10 @@ export default function CategoriesPage() {
                 {tipIndex !== null && (
                   <div
                     key={tipIndex}
-                    className="mt-4 flex max-w-xl animate-in items-start gap-3 rounded-2xl bg-white p-4 text-left text-base font-semibold text-slate-700 fade-in duration-300"
+                    className="mt-3.5 flex w-full max-w-xl animate-in items-start gap-2.5 rounded-2xl bg-white p-3.5 text-left text-sm font-semibold text-slate-700 fade-in duration-300 sm:mt-4 sm:gap-3 sm:p-4 sm:text-base"
                   >
                     <Lightbulb size={20} className="mt-0.5 shrink-0 text-amber-500" />
-                    <span>{tips[tipIndex]}</span>
+                    <span className="leading-snug">{tips[tipIndex]}</span>
                   </div>
                 )}
               </div>
@@ -85,15 +85,15 @@ export default function CategoriesPage() {
             <button
               type="button"
               onClick={handleLightbulbClick}
-              className="group flex shrink-0 flex-col items-center gap-1 rounded-2xl p-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60"
+              className="group flex min-w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl bg-white/10 px-3 py-2 transition-colors hover:bg-white/15 active:bg-white/20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/60 sm:bg-transparent sm:p-2 sm:hover:bg-white/10"
             >
               <img
                 src={lightbulbIcon}
                 alt=""
                 aria-hidden="true"
-                className="h-16 w-16 scale-150 object-contain transition-transform duration-200 group-hover:rotate-6 group-active:scale-125 motion-reduce:transition-none motion-reduce:group-hover:transform-none sm:h-20 sm:w-20"
+                className="h-14 w-14 object-contain transition-transform duration-200 group-hover:rotate-6 group-active:scale-95 motion-reduce:transition-none motion-reduce:group-hover:transform-none sm:h-20 sm:w-20"
               />
-              <span className="mt-2 text-sm font-bold text-white/90">
+              <span className="mt-0.5 text-xs font-bold text-white/95 sm:mt-1 sm:text-sm">
                 {tipIndex === null
                   ? isTagalog ? "Pindutin ako!" : "Tap me!"
                   : isTagalog ? "Susunod na tip" : "Next tip"}
@@ -103,7 +103,7 @@ export default function CategoriesPage() {
         </div>
 
         {/* Categories */}
-        <div className="relative z-10">
+        <div className="relative z-10 pb-2 sm:pb-0">
           <CategoryList categories={categories} />
         </div>
       </section>

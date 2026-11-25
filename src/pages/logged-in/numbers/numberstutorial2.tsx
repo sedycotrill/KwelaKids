@@ -23,28 +23,10 @@ const QUICK_TEST_LENGTH = 3;
 const PAGE_DESIGN_WIDTH = 1366;
 const MOBILE_MAX_WIDTH = 1023;
 
-function isMobileDevice() {
-  if (typeof navigator === "undefined") return false;
-
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
-  ).userAgentData;
-
-  if (uaData?.mobile) return true;
-
-  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
-    return true;
-  }
-
-  return (
-    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
-  );
-}
-
 function detectMobileView() {
   if (typeof window === "undefined") return false;
 
-  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+  return window.innerWidth <= MOBILE_MAX_WIDTH;
 }
 
 function useIsMobileView() {
@@ -229,8 +211,8 @@ const emptyAnswers = (): (string | null)[] =>
   Array(QUICK_TEST_LENGTH).fill(null);
 
 const chunkyButton =
-  "flex h-12 shrink-0 items-center gap-2 rounded-2xl border-b-4 px-3 text-sm font-extrabold " +
-  "whitespace-nowrap sm:text-base md:px-4 " +
+  "flex h-11 sm:h-12 shrink-0 items-center gap-1.5 sm:gap-2 rounded-2xl border-b-4 px-2.5 sm:px-3.5 text-xs sm:text-base font-extrabold " +
+  "whitespace-nowrap md:px-4 " +
   "transition-all duration-150 select-none " +
   "hover:-translate-y-0.5 active:translate-y-0.5 active:border-b-2 " +
   "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 " +
@@ -882,7 +864,7 @@ export default function NumbersTutorialPart2() {
   const errorBanner = errorText ? (
     <div
       role="alert"
-      className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700"
+      className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs sm:text-sm font-semibold text-rose-700"
     >
       {errorText}
     </div>
@@ -920,10 +902,10 @@ export default function NumbersTutorialPart2() {
         attemptCheckpoint ?? getCheckpointNumber(currentIndex);
 
       return (
-        <div className="relative w-full min-h-[700px]">
+        <div className="relative w-full min-h-175">
           {/* SUB-HEADER: back button, title, and quick controls */}
-          <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-            <div className="flex items-center gap-3">
+          <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 pt-4 sm:px-6 sm:pt-6">
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={handleQuickTestBack}
@@ -931,15 +913,15 @@ export default function NumbersTutorialPart2() {
                 aria-label={
                   isTagalog ? "Bumalik sa tutorial" : "Back to tutorial"
                 }
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <ArrowLeft size={22} strokeWidth={2.5} />
+                <ArrowLeft size={21} strokeWidth={2.5} />
               </button>
-              <div>
-                <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-black leading-tight text-[#164B9B] sm:text-3xl">
                   {isTagalog ? "Mabilis na Pagsusulit" : "Quick Test"}
                 </h1>
-                <p className="text-sm font-medium text-slate-600 sm:text-base">
+                <p className="line-clamp-1 text-xs font-medium text-slate-600 sm:text-base">
                   {isTagalog
                     ? `Checkpoint ${checkpointNumber}: mga numero ${CHECKPOINTS[checkpointNumber].label}`
                     : `Checkpoint ${checkpointNumber}: numbers ${CHECKPOINTS[checkpointNumber].label}`}
@@ -948,13 +930,13 @@ export default function NumbersTutorialPart2() {
             </div>
 
             {/* QUICK CONTROLS: Language & Music / Mute */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => toggleLanguage()}
                 className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
               >
-                <Languages size={22} />
+                <Languages size={20} />
                 <span>{isTagalog ? "TL" : "EN"}</span>
               </button>
 
@@ -974,9 +956,9 @@ export default function NumbersTutorialPart2() {
                 }`}
               >
                 {isMusicActive ? (
-                  <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+                  <Volume2 size={20} className="animate-pulse motion-reduce:animate-none" />
                 ) : (
-                  <VolumeX size={22} />
+                  <VolumeX size={20} />
                 )}
                 <span className="hidden md:inline">
                   {isMusicActive
@@ -987,12 +969,12 @@ export default function NumbersTutorialPart2() {
             </div>
           </div>
 
-          <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+          <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-5 sm:px-6 sm:pb-24 sm:pt-6">
             {errorBanner}
             {savingNote}
 
             <div className="mb-4">
-              <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
+              <p className="mb-2 text-xs font-extrabold text-[#164B9B] sm:text-base">
                 {isTagalog
                   ? `Tanong ${testIndex + 1} ng ${QUICK_TEST_LENGTH}`
                   : `Question ${testIndex + 1} of ${QUICK_TEST_LENGTH}`}
@@ -1025,21 +1007,21 @@ export default function NumbersTutorialPart2() {
                 />
               </div>
 
-              <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
+              <div className="flex flex-col justify-center gap-4 px-4 py-5 sm:px-6 sm:py-6">
                 <div className="flex items-center gap-2 text-[#36A9F4]">
-                  <Award size={22} />
+                  <Award size={20} />
                   <span className="text-xs font-extrabold uppercase tracking-wide text-[#164B9B]">
                     {isTagalog ? "Pagsusulit sa FSL" : "FSL Challenge"}
                   </span>
                 </div>
 
-                <h2 className="text-lg font-black leading-relaxed text-[#454545] sm:text-xl">
+                <h2 className="text-lg font-black leading-snug text-[#454545] sm:text-xl">
                   {isTagalog
                     ? currentQuestion.questionTl
                     : currentQuestion.questionEn}
                 </h2>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   {currentQuestion.options.map((option) => {
                     let buttonStyle =
                       "border-[#B8DDF6] bg-white text-[#426A91] hover:bg-slate-50";
@@ -1062,7 +1044,7 @@ export default function NumbersTutorialPart2() {
                         type="button"
                         disabled={selectedAnswer !== null || progressSaving}
                         onClick={() => handleAnswerSelect(option)}
-                        className={`flex h-14 items-center justify-center rounded-xl border-b-4 text-xl font-black transition-all disabled:cursor-not-allowed ${buttonStyle}`}
+                        className={`flex h-14 sm:h-15 items-center justify-center rounded-xl border-b-4 text-xl sm:text-2xl font-black transition-all disabled:cursor-not-allowed ${buttonStyle}`}
                       >
                         {option}
                       </button>
@@ -1073,18 +1055,18 @@ export default function NumbersTutorialPart2() {
                 <button
                   type="button"
                   onClick={handleTestReplay}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-sm sm:text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-sky-600 active:translate-y-0.5 active:border-b-2 sm:w-auto sm:self-start sm:px-6"
                 >
-                  <RotateCcw size={20} aria-hidden="true" />
+                  <RotateCcw size={19} aria-hidden="true" />
                   {isTagalog ? "Panoorin ulit" : "Watch again"}
                 </button>
               </div>
             </div>
 
             {selectedAnswer !== null && (
-              <div className="mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-5 text-center shadow-sm">
+              <div className="mt-5 sm:mt-6 rounded-2xl border border-[#B8DDF6] bg-white p-4 sm:p-5 text-center shadow-sm">
                 <p
-                  className={`text-base font-extrabold ${
+                  className={`text-sm sm:text-base font-extrabold ${
                     isCorrect ? "text-emerald-600" : "text-rose-600"
                   }`}
                 >
@@ -1101,7 +1083,7 @@ export default function NumbersTutorialPart2() {
                   type="button"
                   onClick={handleNextTestQuestion}
                   disabled={progressSaving}
-                  className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-4 flex h-13 sm:h-14 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 text-base sm:text-lg font-extrabold text-white transition hover:bg-sky-600 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {testIndex < questions.length - 1
                     ? isTagalog
@@ -1115,7 +1097,7 @@ export default function NumbersTutorialPart2() {
                         ? "Continue to 16–20"
                         : "Finish"}
 
-                  <ArrowRight size={21} strokeWidth={3} />
+                  <ArrowRight size={20} strokeWidth={3} />
                 </button>
               </div>
             )}
@@ -1125,27 +1107,27 @@ export default function NumbersTutorialPart2() {
     }
 
     return (
-      <div className="relative w-full min-h-[700px]">
+      <div className="relative w-full min-h-175">
         {/* SUB-HEADER: back button, title, and quick controls */}
-        <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 sm:px-6">
-          <div className="flex items-center gap-3">
+        <div className="relative z-20 mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 pt-4 sm:px-6 sm:pt-6">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <button
               type="button"
               onClick={() => navigate("/numbers")}
               aria-label={
                 isTagalog ? "Bumalik sa menu ng mga numero" : "Back to numbers menu"
               }
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
+              className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-[#B8DDF6] bg-white text-[#36A9F4] transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-50 active:translate-y-0.5 active:border-b-2 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none"
             >
-              <ArrowLeft size={22} strokeWidth={2.5} />
+              <ArrowLeft size={21} strokeWidth={2.5} />
             </button>
-            <div>
-              <h1 className="text-2xl font-black leading-tight text-[#164B9B] sm:text-3xl">
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-black leading-tight text-[#164B9B] sm:text-3xl">
                 {isTagalog
                   ? "Tutorial sa mga Numero (11–20)"
                   : "Numbers Tutorial (11–20)"}
               </h1>
-              <p className="text-sm font-medium text-slate-600 sm:text-base">
+              <p className="line-clamp-1 text-xs font-medium text-slate-600 sm:text-base">
                 {isTagalog
                   ? "Matutunan ang mga numerong 11–20 hakbang-hakbang."
                   : "Learn numbers 11–20 step by step."}
@@ -1154,13 +1136,13 @@ export default function NumbersTutorialPart2() {
           </div>
 
           {/* QUICK CONTROLS: Language & Music / Mute */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             <button
               type="button"
               onClick={() => toggleLanguage()}
               className={`${chunkyButton} border-purple-300 bg-purple-100 text-purple-700 hover:bg-purple-200`}
             >
-              <Languages size={22} />
+              <Languages size={20} />
               <span>{isTagalog ? "TL" : "EN"}</span>
             </button>
 
@@ -1180,9 +1162,9 @@ export default function NumbersTutorialPart2() {
               }`}
             >
               {isMusicActive ? (
-                <Volume2 size={22} className="animate-pulse motion-reduce:animate-none" />
+                <Volume2 size={20} className="animate-pulse motion-reduce:animate-none" />
               ) : (
-                <VolumeX size={22} />
+                <VolumeX size={20} />
               )}
               <span className="hidden md:inline">
                 {isMusicActive
@@ -1193,12 +1175,12 @@ export default function NumbersTutorialPart2() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 sm:px-6">
+        <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-5 sm:px-6 sm:pb-24 sm:pt-6">
           {errorBanner}
           {savingNote}
 
           <div className="mb-4">
-            <p className="mb-2 text-sm font-extrabold text-[#164B9B] sm:text-base">
+            <p className="mb-2 text-xs font-extrabold text-[#164B9B] sm:text-base">
               {isTagalog
                 ? `Numero ${currentNumber} (${currentIndex + 1} ng ${total})`
                 : `Number ${currentNumber} (${currentIndex + 1} of ${total})`}
@@ -1238,7 +1220,7 @@ export default function NumbersTutorialPart2() {
                   disabled={progressSaving || isLocked}
                   aria-current={isCurrent ? "step" : undefined}
                   aria-label={isTagalog ? `Numero ${num}` : `Number ${num}`}
-                  className={`flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border-b-4 text-lg font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`flex h-11 w-12 shrink-0 items-center justify-center rounded-xl border-b-4 text-base sm:text-lg font-black transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-300 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60 ${
                     isCurrent
                       ? "border-[#B98AFF] bg-[#E5D3FF] text-[#A45CE8]"
                       : "border-[#B8DDF6] bg-white text-[#426A91] hover:-translate-y-0.5 hover:bg-slate-50 motion-reduce:hover:translate-y-0"
@@ -1265,18 +1247,18 @@ export default function NumbersTutorialPart2() {
               />
             </div>
 
-            <div className="flex flex-col justify-center gap-4 px-5 py-6 sm:px-6">
+            <div className="flex flex-col justify-center gap-4 px-4 py-5 sm:px-6 sm:py-6">
               <div className="flex flex-col items-center justify-center">
-                <span className="text-4xl font-black text-[#426A91] sm:text-5xl">
+                <span className="text-3xl sm:text-5xl font-black text-[#426A91]">
                   {isTagalog ? `Numero ${currentNumber}` : `Number ${currentNumber}`}
                 </span>
               </div>
 
               <div>
-                <h2 className="mb-1 text-lg font-black text-[#454545]">
+                <h2 className="mb-1 text-base sm:text-lg font-black text-[#454545]">
                   {isTagalog ? "Paglalarawan:" : "Description:"}
                 </h2>
-                <p className="text-base leading-relaxed text-[#555555]">
+                <p className="text-sm sm:text-base leading-relaxed text-[#555555]">
                   {description}
                 </p>
               </div>
@@ -1284,9 +1266,9 @@ export default function NumbersTutorialPart2() {
               <button
                 type="button"
                 onClick={handleReplay}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 font-extrabold text-white sm:w-auto sm:self-start sm:px-6"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full border-b-4 border-sky-700 bg-sky-500 text-sm sm:text-base font-extrabold text-white sm:w-auto sm:self-start sm:px-6"
               >
-                <RotateCcw size={20} aria-hidden="true" />
+                <RotateCcw size={19} aria-hidden="true" />
                 {isTagalog ? "Panoorin ulit" : "Watch again"}
               </button>
             </div>
@@ -1299,9 +1281,9 @@ export default function NumbersTutorialPart2() {
                 type="button"
                 onClick={() => handleNumberChange(currentIndex - 1)}
                 disabled={progressSaving}
-                className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-13 sm:h-14 items-center gap-1.5 sm:gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-4 sm:px-5 text-sm sm:text-base font-extrabold text-white transition-all hover:-translate-y-0.5 hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <ArrowLeft size={21} strokeWidth={3} aria-hidden="true" />
+                <ArrowLeft size={20} strokeWidth={3} aria-hidden="true" />
                 {isTagalog ? "Nakaraan" : "Previous"}
               </button>
             ) : (
@@ -1312,13 +1294,13 @@ export default function NumbersTutorialPart2() {
               type="button"
               onClick={handleNext}
               disabled={progressSaving}
-              className="flex h-14 items-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-5 font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-13 sm:h-14 items-center gap-1.5 sm:gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-4 sm:px-5 text-sm sm:text-base font-extrabold text-[#A45CE8] transition-all hover:-translate-y-0.5 hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isCheckpointEnd ? "Quick Test" : isTagalog ? "Susunod" : "Next"}
               {isCheckpointEnd ? (
-                <Check size={21} strokeWidth={3} aria-hidden="true" />
+                <Check size={20} strokeWidth={3} aria-hidden="true" />
               ) : (
-                <ArrowRight size={21} strokeWidth={3} aria-hidden="true" />
+                <ArrowRight size={20} strokeWidth={3} aria-hidden="true" />
               )}
             </button>
           </div>
@@ -1328,7 +1310,7 @@ export default function NumbersTutorialPart2() {
   };
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
+    <main className="relative min-h-screen w-full overflow-x-clip bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF]">
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
       <div className="pointer-events-none absolute -right-10 top-[26%] h-24 w-44 rounded-full bg-white/60 blur-xl" />
       <div className="pointer-events-none absolute -bottom-12 left-[-5%] h-36 w-72 rounded-full bg-white/60 blur-xl" />

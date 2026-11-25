@@ -1,5 +1,5 @@
 import { useEffect, useState, useLayoutEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Trophy,
@@ -26,8 +26,13 @@ type ChampionshipHistoryRecord = {
   started_at: string;
 };
 
+type LocationState = {
+  attemptId?: string;
+} | null;
+
 const PASSING_PERCENTAGE = 75;
 const TOTAL_QUESTIONS = 20;
+const COMPLETE_PAGE_PATH = "/numbercomplete"; // Palitan kung iba ang route path ng NumbersComplete sa router mo
 
 const PAGE_DESIGN_WIDTH = 1366;
 const MOBILE_MAX_WIDTH = 1023;
@@ -115,6 +120,8 @@ function useFitWidth(designWidth: number, enabled: boolean) {
 
 export default function NumbersChampionshipHistory() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState;
 
   const { language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
@@ -260,7 +267,16 @@ export default function NumbersChampionshipHistory() {
   };
 
   const handleBack = () => {
-    navigate("/numbers");
+    const targetAttemptId = state?.attemptId || records[0]?.id;
+
+    if (targetAttemptId) {
+      navigate(
+        `${COMPLETE_PAGE_PATH}?attempt=${encodeURIComponent(targetAttemptId)}`
+      );
+      return;
+    }
+
+    navigate(COMPLETE_PAGE_PATH);
   };
 
   const handleChampionship = () => {
@@ -304,9 +320,7 @@ export default function NumbersChampionshipHistory() {
             onClick={handleBack}
             className="w-full rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-3.5 font-extrabold text-white transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
-            {isTagalog
-              ? "Bumalik sa mga Numero"
-              : "Back to Numbers"}
+            {isTagalog ? "Bumalik" : "Back"}
           </button>
         </div>
       </div>
@@ -326,11 +340,7 @@ export default function NumbersChampionshipHistory() {
         className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
       >
         <ArrowLeft size={20} strokeWidth={2.5} />
-        <span>
-          {isTagalog
-            ? "Bumalik sa mga Numero"
-            : "Back to Numbers"}
-        </span>
+        <span>{isTagalog ? "Bumalik" : "Back"}</span>
       </button>
 
       {/* Page header */}
@@ -608,9 +618,7 @@ export default function NumbersChampionshipHistory() {
         >
           <ArrowLeft size={20} strokeWidth={2.5} />
 
-          {isTagalog
-            ? "Bumalik sa mga Numero"
-            : "Back to Numbers"}
+          {isTagalog ? "Bumalik" : "Back"}
         </button>
 
         <button

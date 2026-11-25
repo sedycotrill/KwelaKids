@@ -35,23 +35,23 @@ type ChampionshipAttempt = {
 // kaya laging aligned kahit magbago ang laki ng screen)
 const CONFETTI = [
   // kaliwa / itaas ng girl
-  { pos: "left-[-1%] top-[4%]", size: "w-9 sm:w-12 lg:w-16", delay: 0, rotate: 15 },
-  { pos: "left-[9%] top-[-2%]", size: "w-8 sm:w-10 lg:w-14", delay: 0.5, rotate: -20 },
+  { pos: "left-[-1%] top-[4%]", size: "w-8 sm:w-12 lg:w-16", delay: 0, rotate: 15 },
+  { pos: "left-[9%] top-[-2%]", size: "w-7 sm:w-10 lg:w-14", delay: 0.5, rotate: -20 },
   { pos: "left-[16%] top-[14%]", size: "w-7 sm:w-9 lg:w-12", delay: 1.1, rotate: 40 },
-  { pos: "left-[-3%] top-[30%]", size: "w-8 sm:w-10 lg:w-14", delay: 1.6, rotate: -35 },
+  { pos: "left-[-3%] top-[30%]", size: "w-7 sm:w-10 lg:w-14", delay: 1.6, rotate: -35 },
   // gitna: sa pagitan ng girl at taas ng modal
-  { pos: "left-[34%] top-[-6%]", size: "w-8 sm:w-10 lg:w-14", delay: 0.3, rotate: 25 },
+  { pos: "left-[34%] top-[-6%]", size: "w-7 sm:w-10 lg:w-14", delay: 0.3, rotate: 25 },
   { pos: "left-[44%] top-[-10%]", size: "w-7 sm:w-9 lg:w-12", delay: 1.4, rotate: -10 },
   // kanan / itaas ng modal
-  { pos: "right-[10%] top-[-9%]", size: "w-8 sm:w-10 lg:w-14", delay: 0.8, rotate: 30 },
-  { pos: "right-[-2%] top-[6%]", size: "w-9 sm:w-12 lg:w-16", delay: 0.2, rotate: -25 },
+  { pos: "right-[10%] top-[-9%]", size: "w-7 sm:w-10 lg:w-14", delay: 0.8, rotate: 30 },
+  { pos: "right-[-2%] top-[6%]", size: "w-8 sm:w-12 lg:w-16", delay: 0.2, rotate: -25 },
   { pos: "right-[-4%] top-[26%]", size: "w-7 sm:w-9 lg:w-12", delay: 1.9, rotate: 55 },
   // kanan / ibaba ng modal
-  { pos: "right-[-3%] bottom-[22%]", size: "w-8 sm:w-10 lg:w-14", delay: 1.2, rotate: -45 },
-  { pos: "right-[12%] bottom-[-9%]", size: "w-9 sm:w-12 lg:w-16", delay: 0.6, rotate: 20 },
+  { pos: "right-[-3%] bottom-[22%]", size: "w-7 sm:w-10 lg:w-14", delay: 1.2, rotate: -45 },
+  { pos: "right-[12%] bottom-[-9%]", size: "w-8 sm:w-12 lg:w-16", delay: 0.6, rotate: 20 },
   { pos: "right-[24%] bottom-[-6%]", size: "w-7 sm:w-9 lg:w-12", delay: 1.7, rotate: -15 },
   // ibaba ng girl
-  { pos: "left-[4%] bottom-[-5%]", size: "w-8 sm:w-10 lg:w-14", delay: 0.9, rotate: 35 },
+  { pos: "left-[4%] bottom-[-5%]", size: "w-7 sm:w-10 lg:w-14", delay: 0.9, rotate: 35 },
   { pos: "left-[20%] bottom-[-8%]", size: "w-7 sm:w-9 lg:w-12", delay: 2.1, rotate: -30 },
 ];
 
@@ -61,28 +61,10 @@ const TOTAL_QUESTIONS = 26;
 const PAGE_DESIGN_WIDTH = 1366;
 const MOBILE_MAX_WIDTH = 1023;
 
-function isMobileDevice() {
-  if (typeof navigator === "undefined") return false;
-
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
-  ).userAgentData;
-
-  if (uaData?.mobile) return true;
-
-  if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
-    return true;
-  }
-
-  return (
-    /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1
-  );
-}
-
 function detectMobileView() {
   if (typeof window === "undefined") return false;
 
-  return isMobileDevice() && window.innerWidth <= MOBILE_MAX_WIDTH;
+  return window.innerWidth <= MOBILE_MAX_WIDTH;
 }
 
 function useIsMobileView() {
@@ -273,19 +255,21 @@ const AlphabetComplete = () => {
   };
 
   const handlePreviousRecords = () => {
-    navigate("/championshiphistory");
+    navigate("/championshiphistory", {
+      state: attempt?.id ? { attemptId: attempt.id } : undefined,
+    });
   };
 
   const handleExit = () => {
-    navigate("/categories");
+    navigate("/alphabet");
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-5">
         <Loader2 className="w-12 h-12 text-[#36A9F4] animate-spin mb-4" />
 
-        <p className="text-lg font-black text-[#164B9B]">
+        <p className="text-base sm:text-lg font-black text-[#164B9B] text-center">
           {isTagalog
             ? "Kinukuha ang iyong resulta..."
             : "Loading your results..."}
@@ -296,15 +280,15 @@ const AlphabetComplete = () => {
 
   if (error || !attempt) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
-        <div className="bg-white rounded-3xl shadow-xl border border-[#B8DDF6] p-8 max-w-md w-full text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-5">
+        <div className="bg-white rounded-3xl shadow-xl border border-[#B8DDF6] p-6 sm:p-8 max-w-md w-full text-center">
           <AlertCircle className="w-14 h-14 text-rose-500 mx-auto mb-4" />
 
-          <h1 className="text-2xl font-black text-[#164B9B] mb-3">
+          <h1 className="text-xl sm:text-2xl font-black text-[#164B9B] mb-3">
             {isTagalog ? "Hindi ma-load ang resulta" : "Result Unavailable"}
           </h1>
 
-          <p className="text-slate-600 font-medium mb-6">
+          <p className="text-sm sm:text-base text-slate-600 font-medium mb-6">
             {error ||
               (isTagalog
                 ? "Hindi makita ang iyong resulta."
@@ -314,16 +298,16 @@ const AlphabetComplete = () => {
           <button
             type="button"
             onClick={handleExit}
-            className="w-full rounded-2xl border-b-4 border-sky-700 bg-sky-500 py-3.5 px-6 font-extrabold text-white transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+            className="w-full rounded-2xl border-b-4 border-sky-700 bg-sky-500 py-3.5 px-6 text-sm sm:text-base font-extrabold text-white transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
-            {isTagalog ? "BUMALIK SA CATEGORIES" : "BACK TO CATEGORIES"}
+            {isTagalog ? "BUMALIK SA ALPHABET" : "BACK TO ALPHABET"}
           </button>
         </div>
       </div>
     );
   }
 
-  const renderContent = (_isDesktop: boolean) => (
+  const renderContent = (isDesktop: boolean) => (
     <div className="flex flex-col items-center justify-center">
       <style>
         {`
@@ -371,7 +355,7 @@ const AlphabetComplete = () => {
       </style>
 
       {/* Main Container */}
-      <div className="relative z-10 w-full max-w-7xl flex flex-col lg:flex-row items-center lg:items-end justify-center gap-0">
+      <div className="relative z-10 w-full max-w-7xl flex flex-col lg:flex-row items-center lg:items-end justify-center gap-1 sm:gap-0">
 
         {/* Confetti: nasa likod ng girl at modal */}
         <div className="pointer-events-none absolute inset-0">
@@ -391,14 +375,14 @@ const AlphabetComplete = () => {
 
         {/* Girl wrapper */}
         <div
-          className="relative flex justify-center z-20 shrink-0 -mb-6 lg:mb-0 lg:block lg:self-stretch lg:-mr-6
+          className="relative flex justify-center z-20 shrink-0 -mb-4 sm:-mb-6 lg:mb-0 lg:block lg:self-stretch lg:-mr-6
                      lg:w-[calc(var(--girl-w)*0.63)]
                      lg:[--girl-w:640px] xl:[--girl-w:860px] 2xl:[--girl-w:900px]"
         >
           <img
             src={transitionGirl}
             alt="Celebration character"
-            className="girl-float w-72 sm:w-80 md:w-96
+            className="girl-float w-52 sm:w-72 md:w-80
                        lg:absolute lg:bottom-0 lg:left-[calc(var(--girl-w)*-0.25)]
                        lg:w-(--girl-w) lg:max-w-none
                        object-contain drop-shadow-2xl"
@@ -406,22 +390,22 @@ const AlphabetComplete = () => {
         </div>
 
         {/* Result Card (Modal) */}
-        <div className="relative bg-white rounded-3xl shadow-sm border border-[#B8DDF6] p-6 sm:p-9 text-center w-full max-w-2xl z-10">
+        <div className={`relative bg-white rounded-3xl shadow-sm border border-[#B8DDF6] ${isDesktop ? "p-9" : "p-5 sm:p-9"} text-center w-full max-w-2xl z-10`}>
 
           {/* Sparkles */}
-          <div className="pointer-events-none absolute -top-8 -left-6 sm:-top-12 sm:-left-10 lg:-top-16 lg:-left-14 z-30">
+          <div className="pointer-events-none absolute -top-5 -left-2 sm:-top-12 sm:-left-10 lg:-top-16 lg:-left-14 z-30">
             <img
               src={sparkle1}
               alt=""
-              className="sparkle-pulse w-16 sm:w-24 lg:w-32 xl:w-36"
+              className="sparkle-pulse w-11 sm:w-24 lg:w-32 xl:w-36"
             />
           </div>
 
-          <div className="pointer-events-none absolute -bottom-8 -right-6 sm:-bottom-12 sm:-right-10 lg:-bottom-16 lg:-right-14 z-30">
+          <div className="pointer-events-none absolute -bottom-5 -right-2 sm:-bottom-12 sm:-right-10 lg:-bottom-16 lg:-right-14 z-30">
             <img
               src={sparkle2}
               alt=""
-              className="sparkle-pulse w-16 sm:w-24 lg:w-32 xl:w-36"
+              className="sparkle-pulse w-11 sm:w-24 lg:w-32 xl:w-36"
               style={{ animationDelay: "0.8s" }}
             />
           </div>
@@ -429,15 +413,15 @@ const AlphabetComplete = () => {
           {/* Greeting */}
           <div className="flex justify-center mb-3">
             <div className="bg-amber-100 p-3 rounded-2xl">
-              <Award className="w-9 h-9 text-amber-500" />
+              <Award className="w-8 h-8 sm:w-9 sm:h-9 text-amber-500" />
             </div>
           </div>
 
-          <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-[#36A9F4] mb-2">
+          <p className="text-xs sm:text-sm font-black uppercase tracking-[0.16em] sm:tracking-[0.2em] text-[#36A9F4] mb-2">
             {isTagalog ? "CHAMPIONSHIP RESULTA" : "CHAMPIONSHIP RESULTS"}
           </p>
 
-          <h1 className="text-3xl sm:text-4xl font-black text-[#164B9B] mb-2">
+          <h1 className={`${isDesktop ? "text-4xl" : "text-2xl sm:text-4xl"} font-black text-[#164B9B] mb-2`}>
             {passed
               ? isTagalog
                 ? "MAGALING!"
@@ -447,7 +431,7 @@ const AlphabetComplete = () => {
                 : "KEEP TRYING!"}
           </h1>
 
-          <p className="text-slate-600 font-medium text-sm sm:text-base mb-6">
+          <p className="text-slate-600 font-medium text-xs sm:text-base mb-5 sm:mb-6 wrap-break-word">
             {isTagalog
               ? `Magaling, ${userName}! Narito ang iyong resulta sa Alphabet Championship.`
               : `Great effort, ${userName}! Here is your Alphabet Championship result.`}
@@ -455,14 +439,14 @@ const AlphabetComplete = () => {
 
           {/* Pass / Fail status */}
           <div
-            className={`rounded-2xl border px-5 py-4 mb-5 ${
+            className={`rounded-2xl border px-4 py-3.5 sm:px-5 sm:py-4 mb-4 sm:mb-5 ${
               passed
                 ? "bg-emerald-50 border-emerald-200"
                 : "bg-rose-50 border-rose-200"
             }`}
           >
             <p
-              className={`text-xl sm:text-2xl font-black ${
+              className={`text-base sm:text-2xl font-black ${
                 passed ? "text-emerald-700" : "text-rose-700"
               }`}
             >
@@ -483,34 +467,34 @@ const AlphabetComplete = () => {
           </div>
 
           {/* Score */}
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4">
-              <p className="text-xs sm:text-sm font-black text-[#164B9B] mb-1 uppercase tracking-wide">
+          <div className="grid grid-cols-2 gap-3 mb-4 sm:mb-5">
+            <div className="min-w-0 bg-sky-50 border border-sky-100 rounded-2xl p-3.5 sm:p-4">
+              <p className="text-[11px] sm:text-sm font-black text-[#164B9B] mb-1 uppercase tracking-wide">
                 {isTagalog ? "TAMANG SAGOT" : "CORRECT ANSWERS"}
               </p>
 
-              <p className="text-3xl sm:text-4xl font-black text-[#164B9B]">
+              <p className="text-2xl sm:text-4xl font-black text-[#164B9B]">
                 {score}
-                <span className="text-base font-extrabold text-sky-400">
+                <span className="text-sm sm:text-base font-extrabold text-sky-400">
                   /{totalQuestions}
                 </span>
               </p>
             </div>
 
-            <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4">
-              <p className="text-xs sm:text-sm font-black text-[#A45CE8] mb-1 uppercase tracking-wide">
+            <div className="min-w-0 bg-purple-50 border border-purple-100 rounded-2xl p-3.5 sm:p-4">
+              <p className="text-[11px] sm:text-sm font-black text-[#A45CE8] mb-1 uppercase tracking-wide">
                 {isTagalog ? "PORSYENTO" : "PERCENTAGE"}
               </p>
 
-              <p className="text-3xl sm:text-4xl font-black text-[#A45CE8]">
+              <p className="text-2xl sm:text-4xl font-black text-[#A45CE8]">
                 {percentage}%
               </p>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="mb-7">
-            <div className="flex justify-between text-xs sm:text-sm font-extrabold text-slate-500 mb-2">
+          <div className="mb-6 sm:mb-7">
+            <div className="flex justify-between gap-2 text-xs sm:text-sm font-extrabold text-slate-500 mb-2">
               <span>{isTagalog ? "Iyong marka" : "Your score"}</span>
               <span>
                 {isTagalog ? "Pamantayan: 75%" : "Passing score: 75%"}
@@ -535,37 +519,42 @@ const AlphabetComplete = () => {
             <button
               type="button"
               onClick={handleTryAgain}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 py-3.5 px-4 font-black text-white shadow-sm transition-all hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+              className="flex h-12 sm:h-13 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-4 text-sm sm:text-base font-black text-white shadow-sm transition-all hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
             >
-              <RotateCcw className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "SUBUKAN MULI" : "TRY AGAIN"}
+              <RotateCcw className="w-5 h-5 shrink-0" strokeWidth={2.5} />
+              <span>{isTagalog ? "SUBUKAN MULI" : "TRY AGAIN"}</span>
             </button>
 
             <button
               type="button"
               onClick={handleSummary}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] py-3.5 px-4 font-black text-[#A45CE8] shadow-sm transition-all hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2"
+              className="flex h-12 sm:h-13 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B98AFF] bg-[#E5D3FF] px-4 text-sm sm:text-base font-black text-[#A45CE8] shadow-sm transition-all hover:bg-[#D8BCFF] active:translate-y-0.5 active:border-b-2"
             >
-              <BookOpen className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "BUOD" : "SUMMARY"}
+              <BookOpen className="w-5 h-5 shrink-0" strokeWidth={2.5} />
+              <span>{isTagalog ? "BUOD" : "SUMMARY"}</span>
             </button>
 
             <button
               type="button"
               onClick={handlePreviousRecords}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] py-3.5 px-4 font-black text-white shadow-sm transition-all hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2"
+              style={{
+                backgroundColor: "#2563EB",
+                borderBottomColor: "#1D4ED8",
+                color: "#FFFFFF",
+              }}
+              className="flex h-12 sm:h-13 items-center justify-center gap-2 rounded-2xl border-b-4 border-blue-800 bg-blue-600 px-4 text-sm sm:text-base font-black text-white shadow-sm transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-2"
             >
-              <History className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "Mga NAKARAANG RECORD" : "PREVIOUS RECORDS"}
+              <History className="w-5 h-5 shrink-0 text-white" strokeWidth={2.5} />
+              <span className="text-white">{isTagalog ? "MGA NAKARAANG RECORD" : "PREVIOUS RECORDS"}</span>
             </button>
 
             <button
               type="button"
               onClick={handleExit}
-              className="flex items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 py-3.5 px-4 font-black text-slate-700 shadow-sm transition-all hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
+              className="flex h-12 sm:h-13 items-center justify-center gap-2 rounded-2xl border-b-4 border-slate-300 bg-slate-100 px-4 text-sm sm:text-base font-black text-slate-700 shadow-sm transition-all hover:bg-slate-200 active:translate-y-0.5 active:border-b-2"
             >
-              <LogOut className="w-5 h-5" strokeWidth={2.5} />
-              {isTagalog ? "LUMABAS" : "EXIT"}
+              <LogOut className="w-5 h-5 shrink-0" strokeWidth={2.5} />
+              <span>{isTagalog ? "LUMABAS" : "EXIT"}</span>
             </button>
 
           </div>
@@ -573,7 +562,7 @@ const AlphabetComplete = () => {
 
       </div>
 
-      <p className="text-center text-xs sm:text-sm text-[#164B9B] font-bold mt-6 relative z-10">
+      <p className="text-center text-xs sm:text-sm text-[#164B9B] font-bold mt-6 relative z-10 px-2">
         {isTagalog
           ? "Ipagpatuloy ang pag-aaral at pagbutihin pa ang iyong kaalaman!"
           : "Keep learning and continue improving your FSL knowledge!"}
@@ -582,10 +571,10 @@ const AlphabetComplete = () => {
   );
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] flex flex-col items-center justify-center">
+    <main className="relative min-h-screen overflow-x-clip bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] flex flex-col items-center justify-center">
 
       {isMobileView ? (
-        <div className="relative z-10 px-4 py-12 w-full">
+        <div className="relative z-10 px-4 py-6 sm:px-6 sm:py-12 w-full">
           {renderContent(false)}
         </div>
       ) : (

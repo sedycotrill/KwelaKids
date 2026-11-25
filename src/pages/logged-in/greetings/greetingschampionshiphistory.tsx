@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Trophy,
@@ -26,11 +26,18 @@ type ChampionshipHistoryRecord = {
   started_at: string;
 };
 
+type LocationState = {
+  attemptId?: string;
+} | null;
+
 const PASSING_PERCENTAGE = 75;
 const TOTAL_QUESTIONS = 20;
+const COMPLETE_PAGE_PATH = "/greetingscomplete"; // Palitan kung iba ang route path ng GreetingsComplete sa router mo
 
 export default function GreetingsChampionshipHistory() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState;
 
   const { language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
@@ -167,7 +174,16 @@ export default function GreetingsChampionshipHistory() {
   };
 
   const handleBack = () => {
-    navigate("/greetings");
+    const targetAttemptId = state?.attemptId || records[0]?.id;
+
+    if (targetAttemptId) {
+      navigate(
+        `${COMPLETE_PAGE_PATH}?attempt=${encodeURIComponent(targetAttemptId)}`
+      );
+      return;
+    }
+
+    navigate(COMPLETE_PAGE_PATH);
   };
 
   const handleChampionship = () => {
@@ -180,7 +196,7 @@ export default function GreetingsChampionshipHistory() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-6">
         <Loader2 className="w-12 h-12 text-[#36A9F4] animate-spin mb-4" />
 
-        <p className="text-[#164B9B] font-black">
+        <p className="text-center text-[#164B9B] font-black">
           {isTagalog
             ? "Kinukuha ang iyong mga nakaraang record..."
             : "Loading your Greetings Championship history..."}
@@ -192,19 +208,19 @@ export default function GreetingsChampionshipHistory() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-6">
-        <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl border border-[#B8DDF6] p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] p-4 sm:p-6">
+        <div className="w-full max-w-lg rounded-3xl bg-white shadow-xl border border-[#B8DDF6] p-6 sm:p-8 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-100">
             <AlertCircle className="h-8 w-8 text-rose-600" />
           </div>
 
-          <h1 className="text-2xl font-black text-[#164B9B] mb-3">
+          <h1 className="text-xl sm:text-2xl font-black text-[#164B9B] mb-3">
             {isTagalog
               ? "Hindi Ma-load ang History"
               : "History Unavailable"}
           </h1>
 
-          <p className="text-slate-600 font-medium leading-relaxed mb-7">
+          <p className="text-sm sm:text-base text-slate-600 font-medium leading-relaxed mb-7">
             {error}
           </p>
 
@@ -213,9 +229,7 @@ export default function GreetingsChampionshipHistory() {
             onClick={handleBack}
             className="w-full rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-3.5 font-extrabold text-white transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
-            {isTagalog
-              ? "Bumalik sa mga Bati"
-              : "Back to Greetings"}
+            {isTagalog ? "Bumalik" : "Back"}
           </button>
         </div>
       </div>
@@ -223,7 +237,7 @@ export default function GreetingsChampionshipHistory() {
   }
 
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-4 py-8 sm:px-6">
+    <main className="relative min-h-screen w-full overflow-x-clip bg-linear-to-b from-[#C9E9FC] via-[#E4F4FF] to-[#F5FAFF] px-4 py-6 sm:px-6 sm:py-8">
       
       {/* Background decorative elements */}
       <div className="pointer-events-none absolute -left-10 top-[40%] h-20 w-40 rounded-full bg-white/50 blur-xl" />
@@ -235,31 +249,27 @@ export default function GreetingsChampionshipHistory() {
         <button
           type="button"
           onClick={handleBack}
-          className="mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-3 font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+          className="mb-5 sm:mb-6 inline-flex items-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-4 py-2.5 sm:py-3 text-sm sm:text-base font-extrabold text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
         >
-          <ArrowLeft size={20} strokeWidth={2.5} />
-          <span>
-            {isTagalog
-              ? "Bumalik sa mga Bati"
-              : "Back to Greetings"}
-          </span>
+          <ArrowLeft size={19} strokeWidth={2.5} />
+          <span>{isTagalog ? "Bumalik" : "Back"}</span>
         </button>
 
         {/* Page header */}
-        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
+        <div className="mb-6 sm:mb-8 overflow-hidden rounded-3xl bg-white shadow-sm border border-[#B8DDF6]">
 
-          <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-6 py-9 text-center text-white sm:px-10">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
-              <History size={34} />
+          <div className="bg-linear-to-r from-[#36A9F4] to-[#164B9B] px-5 py-7 text-center text-white sm:px-10 sm:py-9">
+            <div className="mx-auto mb-3.5 sm:mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-white/20">
+              <History size={30} className="sm:h-8.5 sm:w-8.5" />
             </div>
 
-            <h1 className="text-3xl font-black sm:text-4xl">
+            <h1 className="text-2xl font-black sm:text-4xl">
               {isTagalog
                 ? "Mga Nakaraang Greetings Championship"
                 : "Greetings Championship History"}
             </h1>
 
-            <p className="mt-2 text-sm text-sky-100 font-medium sm:text-base">
+            <p className="mt-2 text-xs sm:text-base text-sky-100 font-medium">
               {isTagalog
                 ? "Tingnan ang iyong mga nakaraang marka at resulta sa bati."
                 : "Review your previous scores and Greetings Championship results."}
@@ -267,9 +277,9 @@ export default function GreetingsChampionshipHistory() {
           </div>
 
           {/* History statistics */}
-          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3 sm:p-8">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 p-4 sm:grid-cols-3 sm:p-8">
 
-            <div className="rounded-2xl bg-sky-50 border border-sky-100 p-5 text-center">
+            <div className="rounded-2xl bg-sky-50 border border-sky-100 p-4 sm:p-5 text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100">
                 <BookOpen className="h-5 w-5 text-[#36A9F4]" />
               </div>
@@ -280,12 +290,12 @@ export default function GreetingsChampionshipHistory() {
                   : "Total Attempts"}
               </p>
 
-              <p className="mt-2 text-3xl font-black text-[#164B9B]">
+              <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-[#164B9B]">
                 {records.length}
               </p>
             </div>
 
-            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-5 text-center">
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 sm:p-5 text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
               </div>
@@ -296,12 +306,12 @@ export default function GreetingsChampionshipHistory() {
                   : "Passed"}
               </p>
 
-              <p className="mt-2 text-3xl font-black text-emerald-700">
+              <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-emerald-700">
                 {records.filter(hasPassed).length}
               </p>
             </div>
 
-            <div className="rounded-2xl bg-rose-50 border border-rose-100 p-5 text-center">
+            <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 sm:p-5 text-center">
               <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
                 <XCircle className="h-5 w-5 text-rose-600" />
               </div>
@@ -312,7 +322,7 @@ export default function GreetingsChampionshipHistory() {
                   : "Not Passed"}
               </p>
 
-              <p className="mt-2 text-3xl font-black text-rose-700">
+              <p className="mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-black text-rose-700">
                 {records.filter((record) => !hasPassed(record)).length}
               </p>
             </div>
@@ -323,39 +333,39 @@ export default function GreetingsChampionshipHistory() {
         {/* History list */}
         <section>
 
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-black text-[#164B9B]">
+          <div className="mb-4 sm:mb-5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-black text-[#164B9B]">
                 {isTagalog
                   ? "Iyong mga Record"
                   : "Your Records"}
               </h2>
 
-              <p className="mt-0.5 text-sm font-medium text-slate-600">
+              <p className="mt-0.5 text-xs sm:text-sm font-medium text-slate-600">
                 {isTagalog
                   ? "Nakaayos mula sa pinakabago."
                   : "Sorted from newest to oldest."}
               </p>
             </div>
 
-            <span className="rounded-full bg-sky-100 px-4 py-1.5 text-xs font-black text-[#164B9B]">
+            <span className="shrink-0 rounded-full bg-sky-100 px-3.5 sm:px-4 py-1.5 text-xs font-black text-[#164B9B]">
               {records.length} {isTagalog ? "Record" : "Records"}
             </span>
           </div>
 
           {records.length === 0 ? (
-            <div className="rounded-3xl border border-[#B8DDF6] bg-white px-6 py-12 text-center shadow-sm sm:px-12">
-              <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-sky-100">
-                <History className="h-10 w-10 text-[#36A9F4]" />
+            <div className="rounded-3xl border border-[#B8DDF6] bg-white px-5 py-10 text-center shadow-sm sm:px-12 sm:py-12">
+              <div className="mx-auto mb-5 flex h-18 w-18 sm:h-20 sm:w-20 items-center justify-center rounded-3xl bg-sky-100">
+                <History className="h-9 w-9 sm:h-10 sm:w-10 text-[#36A9F4]" />
               </div>
 
-              <h3 className="text-2xl font-black text-[#164B9B]">
+              <h3 className="text-xl sm:text-2xl font-black text-[#164B9B]">
                 {isTagalog
                   ? "Wala Pang Record"
                   : "No Previous Records"}
               </h3>
 
-              <p className="mx-auto mt-2 max-w-md text-slate-600 font-medium">
+              <p className="mx-auto mt-2 max-w-md text-xs sm:text-base text-slate-600 font-medium">
                 {isTagalog
                   ? "Wala ka pang natapos na Greetings Championship attempt. Kumpletuhin ang iyong unang Championship upang makita rito ang iyong resulta."
                   : "You have not completed a Greetings Championship attempt yet. Finish your first Championship to see your results here."}
@@ -364,7 +374,7 @@ export default function GreetingsChampionshipHistory() {
               <button
                 type="button"
                 onClick={handleChampionship}
-                className="mt-6 inline-flex items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-7 py-3.5 font-extrabold text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+                className="mt-6 inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-7 py-3.5 text-sm sm:text-base font-extrabold text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
               >
                 <Trophy size={18} />
 
@@ -384,27 +394,27 @@ export default function GreetingsChampionshipHistory() {
                     key={record.id}
                     className="overflow-hidden rounded-3xl border border-[#B8DDF6] bg-white shadow-sm transition hover:shadow-md"
                   >
-                    <div className="p-5 sm:p-6">
+                    <div className="p-4 sm:p-6">
 
                       {/* Attempt header */}
-                      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mb-4 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E5D3FF] text-[#A45CE8]">
-                            <Medal className="h-6 w-6" />
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-2xl bg-[#E5D3FF] text-[#A45CE8]">
+                            <Medal className="h-5 w-5 sm:h-6 sm:w-6" />
                           </div>
 
-                          <div>
-                            <h3 className="text-lg font-black text-[#164B9B]">
+                          <div className="min-w-0">
+                            <h3 className="text-base sm:text-lg font-black text-[#164B9B]">
                               {isTagalog
                                 ? `Attempt #${records.length - index}`
                                 : `Attempt #${records.length - index}`}
                             </h3>
 
-                            <div className="mt-0.5 flex items-center gap-2 text-sm font-medium text-slate-500">
-                              <CalendarDays size={15} />
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500">
+                              <CalendarDays size={14} className="shrink-0" />
 
-                              <span>
+                              <span className="truncate">
                                 {formatDate(record.completed_at)}
                               </span>
                             </div>
@@ -412,16 +422,16 @@ export default function GreetingsChampionshipHistory() {
                         </div>
 
                         <span
-                          className={`inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black ${
+                          className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full px-3.5 sm:px-4 py-1.5 text-xs font-black ${
                             passed
                               ? "bg-emerald-100 text-emerald-700"
                               : "bg-rose-100 text-rose-700"
                           }`}
                         >
                           {passed ? (
-                            <CheckCircle2 size={15} />
+                            <CheckCircle2 size={14} />
                           ) : (
-                            <XCircle size={15} />
+                            <XCircle size={14} />
                           )}
 
                           {passed
@@ -436,31 +446,31 @@ export default function GreetingsChampionshipHistory() {
                       </div>
 
                       {/* Score and percentage */}
-                      <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 mb-4 sm:mb-5">
 
-                        <div className="rounded-2xl bg-sky-50 border border-sky-100 p-4">
-                          <p className="text-xs font-black text-[#164B9B] uppercase tracking-wide">
+                        <div className="rounded-2xl bg-sky-50 border border-sky-100 p-3.5 sm:p-4">
+                          <p className="text-[11px] sm:text-xs font-black text-[#164B9B] uppercase tracking-wide">
                             {isTagalog
                               ? "TAMANG SAGOT"
                               : "CORRECT ANSWERS"}
                           </p>
 
-                          <p className="mt-1 text-2xl font-black text-[#164B9B]">
+                          <p className="mt-1 text-xl sm:text-2xl font-black text-[#164B9B]">
                             {record.score}
-                            <span className="text-base font-extrabold text-sky-400">
+                            <span className="text-sm sm:text-base font-extrabold text-sky-400">
                               /{record.total_questions}
                             </span>
                           </p>
                         </div>
 
-                        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4">
-                          <p className="text-xs font-black text-[#A45CE8] uppercase tracking-wide">
+                        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-3.5 sm:p-4">
+                          <p className="text-[11px] sm:text-xs font-black text-[#A45CE8] uppercase tracking-wide">
                             {isTagalog
                               ? "PORSYENTO"
                               : "PERCENTAGE"}
                           </p>
 
-                          <p className="mt-1 text-2xl font-black text-[#A45CE8]">
+                          <p className="mt-1 text-xl sm:text-2xl font-black text-[#A45CE8]">
                             {percentage}%
                           </p>
                         </div>
@@ -468,7 +478,7 @@ export default function GreetingsChampionshipHistory() {
                       </div>
 
                       {/* Score progress */}
-                      <div className="mb-5">
+                      <div className="mb-4 sm:mb-5">
                         <div className="mb-2 flex items-center justify-between text-xs font-extrabold text-slate-500">
                           <span>
                             {isTagalog
@@ -504,7 +514,7 @@ export default function GreetingsChampionshipHistory() {
                       <button
                         type="button"
                         onClick={() => handleViewSummary(record.id)}
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 py-3.5 font-black text-white transition hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2"
+                        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-b-4 border-[#79C5FA] bg-[#91D1FF] px-5 py-3 text-sm sm:text-base font-black text-white transition hover:bg-[#70BFFF] active:translate-y-0.5 active:border-b-2"
                       >
                         <BookOpen size={18} strokeWidth={2.5} />
 
@@ -522,26 +532,24 @@ export default function GreetingsChampionshipHistory() {
         </section>
 
         {/* Bottom navigation */}
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row">
 
           <button
             type="button"
             onClick={handleBack}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-6 py-4 font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
+            className="flex min-h-13 sm:h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-[#B8DDF6] bg-white px-5 sm:px-6 py-3.5 text-sm sm:text-base font-black text-[#36A9F4] shadow-sm transition hover:bg-slate-50 active:translate-y-0.5 active:border-b-2"
           >
-            <ArrowLeft size={20} strokeWidth={2.5} />
+            <ArrowLeft size={19} strokeWidth={2.5} />
 
-            {isTagalog
-              ? "Bumalik sa mga Bati"
-              : "Back to Greetings"}
+            {isTagalog ? "Bumalik" : "Back"}
           </button>
 
           <button
             type="button"
             onClick={handleChampionship}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-6 py-4 font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
+            className="flex min-h-13 sm:h-14 flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-sky-700 bg-sky-500 px-5 sm:px-6 py-3.5 text-sm sm:text-base font-black text-white shadow-sm transition hover:bg-sky-600 active:translate-y-0.5 active:border-b-2"
           >
-            <RotateCcw size={20} strokeWidth={2.5} />
+            <RotateCcw size={19} strokeWidth={2.5} />
 
             {isTagalog
               ? "Pumunta sa Championship"
